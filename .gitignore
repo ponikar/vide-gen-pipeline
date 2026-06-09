@@ -1,0 +1,6 @@
+node_modules/
+out/
+dist/
+input.*.json
+.DS_Store
+npm-debug.log*

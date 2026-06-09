@@ -1,0 +1,18 @@
+{
+  "video": "./assets/subway.mp4",
+  "output": "./out/reel.mp4",
+  "voices": {
+    "A": "af_heart",
+    "B": "am_adam"
+  },
+  "dialogue": [
+    {
+      "speaker": "A",
+      "text": "I thought building the app was the hard part."
+    },
+    {
+      "speaker": "B",
+      "text": "Then I realized nobody installs a product they never hear about."
+    }
+  ]
+}
