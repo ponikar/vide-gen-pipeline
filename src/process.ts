@@ -9,9 +9,14 @@ export async function assertBinary(name: string): Promise<void> {
   }
 }
 
-export async function runCommand(command: string, args: string[]): Promise<string> {
+export type CommandOptions = {
+  env?: Record<string, string>;
+};
+
+export async function runCommand(command: string, args: string[], options: CommandOptions = {}): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
+      env: options.env ? { ...process.env, ...options.env } : process.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
     const stdout: Buffer[] = [];

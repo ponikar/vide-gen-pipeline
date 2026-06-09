@@ -1,4 +1,4 @@
-import type { GeneratedSegment, TimedCaption } from "./types.js";
+import type { GeneratedSegment, TimedCaption, TimedWord } from "./types.js";
 
 export function buildTimedCaptions(segments: GeneratedSegment[]): TimedCaption[] {
   let cursor = 0;
@@ -8,12 +8,21 @@ export function buildTimedCaptions(segments: GeneratedSegment[]): TimedCaption[]
     const endSeconds = cursor + segment.durationSeconds;
     cursor = endSeconds;
 
+    const words = segment.wordTimings?.map<TimedWord>((word, index) => ({
+      index,
+      word: word.word,
+      displayText: getDisplayWord(segment.text, segment.wordTimings ?? [], index),
+      startSeconds: startSeconds + word.startSeconds,
+      endSeconds: startSeconds + word.endSeconds,
+    }));
+
     return {
       index: segment.index,
       speaker: segment.speaker,
       text: segment.text,
       startSeconds,
       endSeconds,
+      words,
     };
   });
 }
@@ -80,4 +89,13 @@ function wrapCaptionText(text: string): string {
 
 function pad(value: number): string {
   return value.toString().padStart(2, "0");
+}
+
+function getDisplayWord(text: string, words: Array<{ word: string }>, wordIndex: number): string {
+  const tokens = text.replace(/\s+/g, " ").trim().split(" ");
+  if (tokens.length === words.length) {
+    return tokens[wordIndex] ?? words[wordIndex]?.word ?? "";
+  }
+
+  return words[wordIndex]?.word ?? "";
 }

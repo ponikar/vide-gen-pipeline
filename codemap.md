@@ -151,3 +151,91 @@ Added `input.*.json` to `.gitignore` so ad-hoc generation configs are ignored wh
 
 **Result**
 The repository will include the example config but ignore local run-specific input JSON files.
+
+## 2026-06-09T17:08:00.000Z - Add forced-aligned word subtitle mode
+
+**Why**
+The subtitle renderer needed an accessibility-friendly mode that highlights the exact word being spoken, without estimating word timings from text length. Proper sync requires forced alignment against the generated TTS audio.
+
+**Changes**
+Added `subtitleMode` support with `line` as the default and `word` as the opt-in karaoke-style mode. Added a WhisperX alignment bridge that sends each generated TTS chunk and transcript to a Python helper, validates returned word timings, and attaches them to generated segments. Updated subtitle timing to convert per-chunk word timings into absolute video times while preserving punctuation from the original dialogue when word counts match. Added a word-mode renderer that builds a transparent 30fps caption animation with the active spoken word highlighted, then overlays it onto the 1080x1920 reel. Updated CLI help, input validation, docs, example JSON, and focused tests for the new mode.
+
+**Files Modified**
+- src/types.ts
+- src/config.ts
+- src/cli.ts
+- src/alignment.ts
+- src/subtitles.ts
+- src/render.ts
+- scripts/align-whisperx.py
+- tests/config.test.ts
+- tests/subtitles.test.ts
+- README.md
+- example.input.json
+- codemap.md
+
+**Result**
+`npm run typecheck` passed, `npm test` passed with 20 tests, and `node --import tsx src/cli.ts --help` prints the new `--subtitle-mode <mode>` option. The word-mode dependency check was verified locally: because `python3` does not currently have WhisperX installed, word mode returns a clear setup message instead of a raw Python traceback. A full word-highlight MP4 render still requires installing WhisperX with `python3 -m pip install whisperx`.
+
+## 2026-06-09T17:24:00.000Z - Test word-highlight generation end to end
+
+**Why**
+The new word subtitle mode needed a real generation test, not just unit tests, because it depends on Python alignment, Torch model caching, FFmpeg rendering, and burned-in visual output.
+
+**Changes**
+Created a local `.venv` for WhisperX testing after the global Python refused package installs. Added `.venv/` and `.cache/` to `.gitignore`. Updated alignment to accept `WHISPERX_PYTHON` so the CLI can use an isolated Python environment, and routed WhisperX/Torch/Hugging Face caches into project-local `.cache/whisperx` to avoid sandbox writes to the user home directory. Updated `runCommand` to support command-specific environment variables. Documented the alternate Python environment and cache behavior in `README.md`.
+
+**Files Modified**
+- .gitignore
+- src/process.ts
+- src/alignment.ts
+- README.md
+- codemap.md
+
+**Generated Test Artifacts**
+- out/test-line-reel.mp4
+- out/test-clean-bg.mp4
+- out/test-word-reel.mp4
+- out/test-word-clean-reel.mp4
+- .venv/
+- .cache/
+
+**Result**
+`npm run typecheck` passed and `npm test` passed with 20 tests after the cache/environment changes. Line-mode generation succeeded at `out/test-line-reel.mp4` with 1080x1920 output and 29.775s duration. Word-mode generation succeeded with `WHISPERX_PYTHON=.venv/bin/python` at `out/test-word-clean-reel.mp4`; ffprobe verified 1080x1920 output with 6.850s duration. Extracted frame checks found both white subtitle pixels and yellow active-word pixels in the subtitle band, and visual inspection confirmed the word-highlight subtitle layer is burned into a clean source video.
+
+## 2026-06-09T18:35:00.000Z - Fix word subtitle spacing and verify real background output
+
+**Why**
+The isolated word-mode test used FFmpeg `testsrc2`, which intentionally produced RGB color columns and was confusing as a pipeline output. The word subtitle renderer also relied on leading spaces inside SVG `tspan` elements, which were collapsed and made words run together.
+
+**Changes**
+Updated the word subtitle SVG renderer to use explicit `dx` spacing between word `tspan` elements instead of leading whitespace. Regenerated the clean isolated test to verify subtitle typography, then generated a real Subway Surfers word-mode output from `input.video-url.json` so the background check uses an actual gameplay video.
+
+**Files Modified**
+- src/render.ts
+- codemap.md
+
+**Generated Test Artifacts**
+- out/test-word-clean-reel.mp4
+- out/test-word-subway-reel.mp4
+
+**Result**
+`npm run typecheck` passed and `npm test` passed with 20 tests. `out/test-word-subway-reel.mp4` generated successfully with `WHISPERX_PYTHON=.venv/bin/python`; ffprobe verified 1080x1920 output with 6.850s duration. Frame inspection confirmed the real Subway Surfers background renders normally with no synthetic color columns, and the word-highlight subtitle now has visible spacing between words.
+
+## 2026-06-09T18:38:00.000Z - Strengthen active word highlight style
+
+**Why**
+The yellow active-word fill was not noticeable enough on busy gameplay, especially against Subway Surfers yellow ramps and coins.
+
+**Changes**
+Changed the active word style from yellow to high-contrast cyan, increased the active word stroke width, and added a small SVG glow/drop-shadow filter only on the active word. This keeps inactive subtitle words in the normal white movie-subtitle style while making the currently spoken word easier to spot.
+
+**Files Modified**
+- src/render.ts
+- codemap.md
+
+**Generated Test Artifacts**
+- out/test-word-subway-reel.mp4
+
+**Result**
+`npm run typecheck` passed and `npm test` passed with 20 tests. Regenerated `out/test-word-subway-reel.mp4`; ffprobe verified 1080x1920 output with 6.850s duration. Frame inspection confirmed the cyan active word is visibly stronger on the real Subway Surfers background without disrupting subtitle readability.

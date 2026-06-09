@@ -1,6 +1,7 @@
 {
   "video": "./assets/subway.mp4",
   "output": "./out/reel.mp4",
+  "subtitleMode": "line",
   "ttsSpeed": 1.25,
   "voices": {
     "A": "af_heart",

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import type { CliOptions, InputConfig } from "./types.js";
+import type { CliOptions, InputConfig, SubtitleMode } from "./types.js";
 
 const dialogueSchema = z.object({
   speaker: z.string().trim().min(1).optional(),
@@ -11,6 +11,7 @@ const dialogueSchema = z.object({
 const inputSchema = z.object({
   video: z.string().trim().min(1),
   output: z.string().trim().min(1).optional(),
+  subtitleMode: z.enum(["line", "word"]).optional(),
   ttsSpeed: z.number().positive().max(3).optional(),
   voices: z.record(z.string().trim().min(1)).optional(),
   dialogue: z.array(dialogueSchema).min(1),
@@ -23,6 +24,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
   let outputOverride: string | undefined;
   let videoOverride: string | undefined;
   let speedOverride: number | undefined;
+  let subtitleModeOverride: SubtitleMode | undefined;
   const voiceOverrides: Record<string, string> = {};
   let keepTemp = false;
   let help = false;
@@ -70,6 +72,16 @@ export function parseCliArgs(argv: string[]): CliOptions {
       continue;
     }
 
+    if (arg === "--subtitle-mode") {
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error("Missing value for --subtitle-mode.");
+      }
+      subtitleModeOverride = parseSubtitleModeFlag(value);
+      index += 1;
+      continue;
+    }
+
     if (arg === "--voice") {
       const value = argv[index + 1];
       if (!value) {
@@ -95,6 +107,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
       outputOverride,
       videoOverride,
       speedOverride,
+      subtitleModeOverride,
       voiceOverrides,
       keepTemp,
     };
@@ -110,6 +123,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
     outputOverride,
     videoOverride,
     speedOverride,
+    subtitleModeOverride,
     voiceOverrides,
     keepTemp,
   };
@@ -135,7 +149,7 @@ export async function loadInputConfig(options: CliOptions): Promise<InputConfig>
 export function normalizeConfig(
   input: RawInputConfig,
   inputPath: string,
-  overrides: Partial<Pick<CliOptions, "outputOverride" | "videoOverride" | "speedOverride" | "voiceOverrides">> = {},
+  overrides: Partial<Pick<CliOptions, "outputOverride" | "videoOverride" | "speedOverride" | "subtitleModeOverride" | "voiceOverrides">> = {},
 ): InputConfig {
   const inputDir = path.dirname(path.resolve(inputPath));
   const output = overrides.outputOverride ?? input.output ?? "./out/reel.mp4";
@@ -150,6 +164,7 @@ export function normalizeConfig(
   return {
     video: resolveMaybeLocalPath(video, inputDir),
     output: path.resolve(inputDir, output),
+    subtitleMode: overrides.subtitleModeOverride ?? input.subtitleMode ?? "line",
     ttsSpeed: overrides.speedOverride ?? input.ttsSpeed ?? 1,
     voices,
     dialogue: input.dialogue.map((line) => ({
@@ -206,6 +221,7 @@ Options:
   -h, --help               Show this help text.
   --out <path>             Override output MP4 path.
   --video <path-or-url>    Override background MP4 path or direct MP4 URL.
+  --subtitle-mode <mode>   Subtitle mode: line or word. Word mode requires WhisperX.
   --speed <number>         Override Kokoro TTS speed. Example: 1.25.
   --voice <speaker=voice>  Override speaker voice. Repeatable. Example: --voice A=am_michael.
   --keep-temp              Keep temporary audio/caption files for debugging.
@@ -214,6 +230,7 @@ Input JSON shape:
 {
   "video": "./assets/subway.mp4",
   "output": "./out/reel.mp4",
+  "subtitleMode": "line",
   "ttsSpeed": 1.25,
   "voices": { "A": "af_heart", "B": "am_adam" },
   "dialogue": [
@@ -228,6 +245,13 @@ function parseSpeedFlag(value: string): number {
     throw new Error("--speed must be a number greater than 0 and less than or equal to 3.");
   }
   return speed;
+}
+
+function parseSubtitleModeFlag(value: string): SubtitleMode {
+  if (value === "line" || value === "word") {
+    return value;
+  }
+  throw new Error("--subtitle-mode must be either line or word.");
 }
 
 function parseVoiceFlag(value: string): [string, string] {

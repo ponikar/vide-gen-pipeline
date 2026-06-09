@@ -7,6 +7,7 @@ import { assertBinary, probeVideo } from "./process.js";
 import { renderVideo } from "./render.js";
 import { generateSpeechSegments } from "./tts.js";
 import { resolveVideoSource } from "./video.js";
+import { alignSpeechSegments } from "./alignment.js";
 
 async function main(): Promise<void> {
   const args = parseCliArgs(process.argv.slice(2));
@@ -30,11 +31,15 @@ async function main(): Promise<void> {
       throw new Error("Dialogue produced no speakable chunks.");
     }
 
-    const segments = await generateSpeechSegments(chunks, config.voices, config.ttsSpeed, tempDir);
+    const generatedSegments = await generateSpeechSegments(chunks, config.voices, config.ttsSpeed, tempDir);
+    const segments = config.subtitleMode === "word"
+      ? await alignSpeechSegments(generatedSegments, tempDir)
+      : generatedSegments;
     await renderVideo({
       sourceVideoPath,
       segments,
       outputPath: config.output,
+      subtitleMode: config.subtitleMode,
       tempDir,
     });
 
