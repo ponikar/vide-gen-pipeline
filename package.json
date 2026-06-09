@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "generate": "tsx src/cli.ts",
+    "instagram:setup": "tsx scripts/setup-instagram.ts",
+    "instagram:post": "tsx src/post.ts",
+    "instagram:analytics": "tsx src/analytics.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

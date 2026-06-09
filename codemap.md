@@ -151,3 +151,31 @@ Added `input.*.json` to `.gitignore` so ad-hoc generation configs are ignored wh
 
 **Result**
 The repository will include the example config but ignore local run-specific input JSON files.
+
+## 2026-06-09T21:15:00.000Z - Add Instagram API integration module
+
+**Why**
+The agent needs to post generated reels to Instagram and read analytics. The Instagram Login API (launched July 2024) allows Instagram-only auth without requiring a Facebook Page.
+
+**Changes**
+Added a self-contained `src/instagram/` module with zero external dependencies using the Instagram Login API (`graph.instagram.com`). Created a one-time OAuth bootstrap script that exchanges a code for a long-lived token (60 days) via a local HTTP server callback. Added two CLI entry points for posting reels and fetching analytics. Every command checks token expiry with a 7-day buffer and auto-refreshes before proceeding.
+
+**Files Created**
+- `src/instagram/types.ts` — All Instagram-specific types
+- `src/instagram/client.ts` — Low-level `graph.instagram.com` HTTP wrapper
+- `src/instagram/env.ts` — .env read/write utility
+- `src/instagram/auth.ts` — OAuth: `getAuthUrl`, `exchangeCode`, `getLongLivedToken`, `refreshToken`, `getProfile`
+- `src/instagram/post.ts` — `postReel`: create container → poll status → publish
+- `src/instagram/analytics.ts` — `getMediaInsights`, `getAccountInsights`, `getRecentMedia`
+- `src/instagram/index.ts` — Public API re-exports
+- `src/post.ts` — CLI entry: `npm run instagram:post -- <video_url> [caption]`
+- `src/analytics.ts` — CLI entry: `npm run instagram:analytics`
+- `scripts/setup-instagram.ts` — One-time OAuth bootstrap with local server
+- `.env.example` — Environment variable template
+
+**Files Modified**
+- `package.json` — Added `instagram:setup`, `instagram:post`, `instagram:analytics` scripts
+- `tsconfig.json` — Added `scripts/**/*.ts` to include array
+
+**Result**
+`npm run typecheck` passed with zero errors. `npm test` passed with 18/18 tests. Zero new dependencies added.
