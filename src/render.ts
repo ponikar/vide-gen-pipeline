@@ -11,44 +11,123 @@ export async function renderVideo(options: {
   outputPath: string;
   tempDir: string;
 }): Promise<void> {
-  const narrationPath = path.join(options.tempDir, "narration.wav");
-  const narrationDurationSeconds = options.segments.reduce((total, segment) => total + segment.durationSeconds, 0);
   const captions = buildTimedCaptions(options.segments);
-
-  await concatenateAudio(options.segments, narrationPath, options.tempDir);
   const captionImagePaths = await createCaptionImages(captions, options.tempDir);
-  await mkdir(path.dirname(options.outputPath), { recursive: true });
 
-  const captionImageInputs = captionImagePaths.flatMap((captionImagePath) => ["-loop", "1", "-i", captionImagePath]);
-  const filterComplex = buildFilterComplex(captions);
+  // Encode each segment separately (1 overlay per ffmpeg call = low memory)
+  const segmentVideoPaths: string[] = [];
+  for (let i = 0; i < captions.length; i++) {
+    const caption = captions[i];
+    const segment = options.segments[i]; // segments and captions are parallel
+    const captionImagePath = captionImagePaths[i];
+    const segmentPath = path.join(options.tempDir, `segment-${String(i).padStart(4, "0")}.mp4`);
 
+    await encodeSegment({
+      sourceVideoPath: options.sourceVideoPath,
+      captionImagePath,
+      audioPath: segment.audioPath,
+      startSeconds: caption.startSeconds,
+      durationSeconds: segment.durationSeconds,
+      outputPath: segmentPath,
+    });
+
+    segmentVideoPaths.push(segmentPath);
+  }
+
+  // Concatenate all segment videos
+  const videoConcatPath = path.join(options.tempDir, "video-concat.txt");
+  const videoConcatContent = segmentVideoPaths.map((p) => `file '${escapeConcatPath(p)}'`).join("\n");
+  await writeFile(videoConcatPath, `${videoConcatContent}\n`, "utf8");
+
+  const videoOnlyPath = path.join(options.tempDir, "video-only.mp4");
   await runCommand("ffmpeg", [
     "-y",
-    "-stream_loop",
-    "-1",
+    "-f",
+    "concat",
+    "-safe",
+    "0",
+    "-i",
+    videoConcatPath,
+    "-c",
+    "copy",
+    videoOnlyPath,
+  ]);
+
+  // Concatenate audio
+  const audioConcatPath = path.join(options.tempDir, "audio-concat.txt");
+  const audioConcatContent = options.segments.map((s) => `file '${escapeConcatPath(s.audioPath)}'`).join("\n");
+  await writeFile(audioConcatPath, `${audioConcatContent}\n`, "utf8");
+
+  const audioOnlyPath = path.join(options.tempDir, "audio-only.wav");
+  await runCommand("ffmpeg", [
+    "-y",
+    "-f",
+    "concat",
+    "-safe",
+    "0",
+    "-i",
+    audioConcatPath,
+    "-c",
+    "copy",
+    audioOnlyPath,
+  ]);
+
+  // Merge video + audio
+  await mkdir(path.dirname(options.outputPath), { recursive: true });
+  await runCommand("ffmpeg", [
+    "-y",
+    "-i",
+    videoOnlyPath,
+    "-i",
+    audioOnlyPath,
+    "-c",
+    "copy",
+    "-movflags",
+    "+faststart",
+    options.outputPath,
+  ]);
+}
+
+async function encodeSegment(options: {
+  sourceVideoPath: string;
+  captionImagePath: string;
+  audioPath: string;
+  startSeconds: number;
+  durationSeconds: number;
+  outputPath: string;
+}): Promise<void> {
+  await runCommand("ffmpeg", [
+    "-y",
+    "-ss",
+    options.startSeconds.toFixed(3),
+    "-t",
+    options.durationSeconds.toFixed(3),
     "-i",
     options.sourceVideoPath,
     "-i",
-    narrationPath,
-    ...captionImageInputs,
-    "-t",
-    narrationDurationSeconds.toFixed(3),
+    options.audioPath,
+    "-i",
+    options.captionImagePath,
     "-filter_complex",
-    filterComplex,
+    "[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280[base];[base][2:v]overlay=0:0[vout]",
     "-map",
     "[vout]",
     "-map",
     "1:a:0",
-    "-r",
-    "30",
+    "-threads",
+    "1",
     "-c:v",
     "libx264",
+    "-preset",
+    "ultrafast",
+    "-crf",
+    "28",
     "-pix_fmt",
     "yuv420p",
     "-c:a",
     "aac",
     "-b:a",
-    "192k",
+    "128k",
     "-shortest",
     "-movflags",
     "+faststart",
@@ -73,42 +152,27 @@ async function createCaptionImages(
   return paths;
 }
 
-function buildFilterComplex(captions: Array<{ startSeconds: number; endSeconds: number }>): string {
-  const parts = ["[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920[base]"];
-  let previous = "base";
-
-  captions.forEach((caption, index) => {
-    const inputIndex = index + 2;
-    const output = index === captions.length - 1 ? "vout" : `v${index + 1}`;
-    parts.push(
-      `[${previous}][${inputIndex}:v]overlay=0:0:enable='between(t,${caption.startSeconds.toFixed(3)},${caption.endSeconds.toFixed(3)})'[${output}]`,
-    );
-    previous = output;
-  });
-
-  return parts.join(";");
-}
-
 function createCaptionSvg(lines: string[]): string {
-  const startY = lines.length === 1 ? 1580 : 1535;
-  const lineHeight = 74;
+  // 720x1280 viewport, font scaled proportionally
+  const startY = lines.length === 1 ? 1050 : 1020;
+  const lineHeight = 50;
   const text = lines
     .map((line, index) => {
       const y = startY + index * lineHeight;
-      return `<text x="540" y="${y}" text-anchor="middle">${escapeXml(line)}</text>`;
+      return `<text x="360" y="${y}" text-anchor="middle">${escapeXml(line)}</text>`;
     })
     .join("");
 
   return `
-<svg width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+<svg width="720" height="1280" viewBox="0 0 720 1280" xmlns="http://www.w3.org/2000/svg">
   <style>
     text {
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 56px;
+      font-size: 38px;
       font-weight: 800;
       fill: white;
       stroke: black;
-      stroke-width: 8px;
+      stroke-width: 5px;
       stroke-linejoin: round;
       paint-order: stroke fill;
     }
@@ -124,29 +188,6 @@ function escapeXml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
-}
-
-async function concatenateAudio(
-  segments: GeneratedSegment[],
-  outputPath: string,
-  tempDir: string,
-): Promise<void> {
-  const concatPath = path.join(tempDir, "audio-concat.txt");
-  const body = segments.map((segment) => `file '${escapeConcatPath(segment.audioPath)}'`).join("\n");
-  await writeFile(concatPath, `${body}\n`, "utf8");
-
-  await runCommand("ffmpeg", [
-    "-y",
-    "-f",
-    "concat",
-    "-safe",
-    "0",
-    "-i",
-    concatPath,
-    "-c",
-    "copy",
-    outputPath,
-  ]);
 }
 
 function escapeConcatPath(filePath: string): string {
