@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { chunkDialogue } from "./chunk.js";
-import { loadInputConfig, parseCliArgs } from "./config.js";
+import { getUsageText, loadInputConfig, parseCliArgs } from "./config.js";
 import { assertBinary, probeVideo } from "./process.js";
 import { renderVideo } from "./render.js";
 import { generateSpeechSegments } from "./tts.js";
@@ -10,7 +10,12 @@ import { resolveVideoSource } from "./video.js";
 
 async function main(): Promise<void> {
   const args = parseCliArgs(process.argv.slice(2));
-  const config = await loadInputConfig(args.inputPath, args.outputOverride);
+  if (args.help) {
+    console.log(getUsageText());
+    return;
+  }
+
+  const config = await loadInputConfig(args);
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "gold-fish-"));
 
   try {

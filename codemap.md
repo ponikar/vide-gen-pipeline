@@ -102,6 +102,26 @@ Added `ttsSpeed` to the input config with a default of `1`, passed it into Kokor
 **Result**
 `npm test` passed with 13 tests and `npm run typecheck` passed. ffprobe verified the regenerated MP4 as 1080x1920 H.264/AAC with duration 29.775 seconds, down from 35.325 seconds. Frame inspection confirmed subtitles still render correctly after the 1.25x speed change.
 
+## 2026-06-09T11:23:00.000Z - Improve CLI help, overrides, and input validation
+
+**Why**
+The generator CLI needed to be easier for new users to run and debug, with a proper help screen, speed as a command-line parameter, useful runtime overrides, and clearer feedback for malformed input JSON.
+
+**Changes**
+Added `--help`/`-h`, `--speed`, `--video`, repeatable `--voice speaker=voice`, and existing `--out`/`--keep-temp` handling in the CLI parser. Made the input schema strict so unsupported fields are rejected, added clearer missing-file and invalid-config messages with the expected JSON shape, and documented the new flags in `README.md`. Updated `example.input.json` to show `ttsSpeed`.
+
+**Files Modified**
+- src/types.ts
+- src/config.ts
+- src/cli.ts
+- tests/config.test.ts
+- README.md
+- example.input.json
+- codemap.md
+
+**Result**
+`npm test` passed with 18 tests and `npm run typecheck` passed. Manual CLI checks confirmed `--help` prints usage, missing input files show a readable correction message, and invalid JSON reports exact bad fields plus the expected config shape.
+
 ## 2026-06-09T11:15:00.000Z - Prepare repository commit
 
 **Why**

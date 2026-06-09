@@ -12,8 +12,12 @@ export type InputConfig = {
 };
 
 export type CliOptions = {
-  inputPath: string;
+  inputPath?: string;
+  help: boolean;
   outputOverride?: string;
+  videoOverride?: string;
+  speedOverride?: number;
+  voiceOverrides: Record<string, string>;
   keepTemp: boolean;
 };
 

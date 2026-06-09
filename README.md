@@ -27,7 +27,11 @@ Optional:
 
 ```bash
 npm run generate -- ./example.input.json --out ./out/custom.mp4
+npm run generate -- ./example.input.json --speed 1.25
+npm run generate -- ./example.input.json --voice A=am_michael
+npm run generate -- ./example.input.json --video https://example.com/background.mp4
 npm run generate -- ./example.input.json --keep-temp
+npm run generate -- --help
 ```
 
 ## Input
@@ -36,6 +40,7 @@ npm run generate -- ./example.input.json --keep-temp
 {
   "video": "./assets/subway.mp4",
   "output": "./out/reel.mp4",
+  "ttsSpeed": 1.25,
   "voices": {
     "A": "af_heart",
     "B": "am_adam"
