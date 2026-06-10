@@ -218,3 +218,27 @@ The AI agent needs two primary endpoints: (1) post a video with one call (upload
 
 **Result**
 Instagram token hit rate limit ("API access blocked", code 200) during testing due to rapid curl calls. Endpoint logic verified — multipart parsing, Supabase upload, DB lookup, Instagram API call attempt all work correctly. Token needs cooldown or reconnect.
+
+## 2026-06-11T00:15:00.000Z - Upload CLI + dual-mode post for large files
+
+**Why**
+Videos average 15MB, exceeding Vercel's 4.5MB serverless body limit. The one-shot multipart POST /api/content/post couldn't handle large files. Need a two-step flow: upload directly to Supabase (bypassing Vercel) then post with the public URL.
+
+**Changes**
+- Created `scripts/upload.ts` — standalone CLI: gets signed upload URL from Vercel, PUTs video directly to Supabase, prints public URL. `npm run upload out/video.mp4` → outputs `https://...publicUrl`
+- Modified `POST /api/content/post` to accept two modes:
+  - Multipart form (`provider`, `caption`, `video`) — for files under 4.5MB (same as before)
+  - JSON body (`{provider, caption, blobUrl}`) — for pre-uploaded videos of any size
+- Refactored `src/post.ts` to use the JSON mode — uploads directly to Supabase, then calls POST /api/content/post with blobUrl. Works for any file size.
+- Added `npm run upload` script to package.json
+- Fixed Buffer→BodyInit type errors in api/content/post.ts for tsc compatibility
+
+**Files Modified**
+- `scripts/upload.ts` (created)
+- `api/content/post.ts` (dual-mode — multipart + JSON)
+- `src/post.ts` (refactored to use JSON mode with blobUrl)
+- `package.json` (added upload script)
+- `README.md` (two flows documented)
+
+**Result**
+`npm run typecheck` passes. `npm test` passes (18/18). `npm run upload` confirmed working — uploads file to Supabase and returns public URL. JSON mode confirmed working — Vercel API accepts blobUrl and processes the post. Only blocker is the rate-limited Instagram token from earlier testing. Large file flow is verified and ready once token is unblocked.
