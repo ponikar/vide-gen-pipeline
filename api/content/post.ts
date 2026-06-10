@@ -17,32 +17,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const { fields, file } = await parseMultipart(req);
+    const contentType = req.headers['content-type'] ?? '';
 
-    const providerName = fields.provider;
-    const caption = fields.caption ?? '';
-    const videoBuffer = file.buffer;
-    const ext = file.filename?.split('.').pop() ?? 'mp4';
+    let providerName: string;
+    let caption: string;
+    let blobUrl: string | null = null;
 
-    if (!providerName) return res.status(400).json({ error: 'Missing provider' });
-    if (!videoBuffer || videoBuffer.length === 0) return res.status(400).json({ error: 'Missing video' });
+    if (contentType.includes('multipart/form-data')) {
+      const { fields, file } = await parseMultipart(req);
 
-    const filename = `${Date.now()}.${ext}`;
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUploadUrl(filename, { upsert: true });
+      providerName = fields.provider;
+      caption = fields.caption ?? '';
+      const videoBuffer = file.buffer;
+      const ext = file.filename?.split('.').pop() ?? 'mp4';
 
-    if (uploadError) return res.status(500).json({ error: uploadError.message });
+      if (!providerName) return res.status(400).json({ error: 'Missing provider' });
+      if (!videoBuffer || videoBuffer.length === 0) return res.status(400).json({ error: 'Missing video' });
 
-    const uploadRes = await fetch(uploadData.signedUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'video/mp4' },
-      body: videoBuffer,
-    });
+      const filename = `${Date.now()}.${ext}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUploadUrl(filename, { upsert: true });
 
-    if (!uploadRes.ok) return res.status(500).json({ error: 'Upload to storage failed' });
+      if (uploadError) return res.status(500).json({ error: uploadError.message });
 
-    const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+      const uploadRes = await fetch(uploadData.signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'video/mp4' },
+        body: videoBuffer,
+      });
+
+      if (!uploadRes.ok) return res.status(500).json({ error: 'Upload to storage failed' });
+
+      const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+      blobUrl = publicUrl;
+    } else {
+      const body = req.body as Record<string, unknown> ?? {};
+      providerName = body.provider as string;
+      caption = (body.caption as string) ?? '';
+      blobUrl = (body.blobUrl as string) ?? null;
+
+      if (!providerName) return res.status(400).json({ error: 'Missing provider' });
+      if (!blobUrl) return res.status(400).json({ error: 'Missing blobUrl — upload video first with npm run upload' });
+    }
 
     const provider = getProvider(providerName);
     const accounts = await db
@@ -72,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const { containerId } = await provider.createMedia(
-      account.accessToken, account.providerUserId, publicUrl, caption,
+      account.accessToken, account.providerUserId, blobUrl, caption,
     );
 
     const start = Date.now();

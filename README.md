@@ -1,11 +1,11 @@
 # Gold Fish
 
-Multi-provider social media API. Post reels and fetch analytics — all through two simple endpoints.
+Multi-provider social media API. Post reels and fetch analytics.
 
 ```
-AI Agent ──POST /api/content/post──> Vercel ──> Supabase Storage
-                                              ──> Instagram Graph API
-         ──GET /api/content/analytics──> Vercel ──> Instagram Graph API
+AI Agent ──> Vercel ──> Supabase Storage (video)
+                    ──> Instagram Graph API
+                    ──> Neon Postgres (tokens)
 ```
 
 ## Setup
@@ -14,7 +14,7 @@ AI Agent ──POST /api/content/post──> Vercel ──> Supabase Storage
 npm install
 ```
 
-Required env vars:
+Required env vars — set on Vercel and in `.env` for local CLI:
 
 ```
 INSTAGRAM_APP_ID=
@@ -22,72 +22,80 @@ INSTAGRAM_APP_SECRET=
 POSTGRES_URL=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
+VERCEL_API_URL=https://vide-gen-pipeline.vercel.app
 ```
-
-Deploy to Vercel (auto-deploys on push), then:
 
 ```bash
 npm run migrate
 npm run connect -- instagram    # opens browser for OAuth
 ```
 
-Check connection: `GET /api/auth/instagram/status`
-
 ---
 
-## For AI Agents — Two Endpoints
+## For AI Agents
 
-### 1. Post a Reel
+### Post a Reel — Two Ways
 
-Upload a video + caption in one call. The API uploads to Supabase, creates the Instagram container, polls for processing, and publishes — all in one shot.
+**A) Small video (<4.5MB) — upload inline**
 
 ```bash
 curl -s -F "provider=instagram" \
   -F "caption=Your caption" \
   -F "video=@out/reel.mp4" \
-  https://your-project.vercel.app/api/content/post
+  https://vide-gen-pipeline.vercel.app/api/content/post
 ```
 
-**Response** (on success):
-```json
-{
-  "id": "18012345678901234",
-  "permalink": "https://www.instagram.com/reel/DZabc1234_5/",
-  "containerId": "18102399730884094"
-}
-```
+Returns `{"id":"...","permalink":"https://...","containerId":"..."}` or `{"containerId":"..."}` if processing exceeds 8s (poll & publish separately).
 
-If processing takes longer than 8 seconds, it returns just the `containerId` — poll and publish separately using the status/publish endpoints below.
+**B) Large video (any size) — upload directly to Supabase, then post**
 
-**Videos up to 4.5MB.** For larger files, upload directly to Supabase with a signed URL and use `POST /api/content/create`.
-
-### 2. Fetch Analytics
-
-**Account-level** (no mediaId):
+Step 1 — Upload locally (bypasses Vercel's 4.5MB limit):
 ```bash
-curl https://your-project.vercel.app/api/content/analytics?provider=instagram
+npm run upload out/reel.mp4
+# prints: https://hlneqkcervrvftffotxn.supabase.co/storage/v1/object/public/videos/...
 ```
-Returns recent media list + aggregated reach, views, profile_visits, follows.
 
-**Per-post** (pass mediaId from the post response):
+Step 2 — Post with the public URL:
 ```bash
-curl "https://your-project.vercel.app/api/content/analytics?provider=instagram&mediaId=18012345678901234"
+curl -s -X POST https://vide-gen-pipeline.vercel.app/api/content/post \
+  -H "Content-Type: application/json" \
+  -d '{"provider":"instagram","blobUrl":"<url_from_step_1>","caption":"Your caption"}'
 ```
-Returns media details + individual reach, views, saves, shares, comments, likes.
+
+Same response format. The CLI does both steps automatically:
+```bash
+npm run post -- instagram out/video.mp4 "Your caption"
+```
+
+### Fetch Analytics
+
+**Account-level:**
+```bash
+curl https://vide-gen-pipeline.vercel.app/api/content/analytics?provider=instagram
+```
+
+**Per-post** (mediaId from post response):
+```bash
+curl "https://vide-gen-pipeline.vercel.app/api/content/analytics?provider=instagram&mediaId=18012345678901234"
+```
 
 ---
 
-## Additional Endpoints
+## Debugging
 
-| Method | Path | What it does |
-|--------|------|-------------|
-| `GET` | `/api/auth/:provider/url` | Get OAuth URL |
-| `GET` | `/api/auth/:provider/callback` | OAuth callback |
-| `GET` | `/api/auth/:provider/status` | Connection status |
-| `POST` | `/api/content/create` | Create container from an already-hosted video URL |
-| `POST` | `/api/content/upload-url` | Get signed Supabase upload URL + public URL |
-| `GET` | `/api/content/post/:containerId/status` | Poll container processing status |
-| `POST` | `/api/content/post/:containerId/publish` | Publish a finished container |
+```bash
+# Is the account connected?
+curl https://vide-gen-pipeline.vercel.app/api/auth/instagram/status
+
+# Get a fresh OAuth URL (reconnect)
+curl https://vide-gen-pipeline.vercel.app/api/auth/instagram/url
+
+# Poll container processing
+curl "https://vide-gen-pipeline.vercel.app/api/content/post/CONTAINER_ID/status?provider=instagram"
+
+# Publish a finished container
+curl -X POST "https://vide-gen-pipeline.vercel.app/api/content/post/CONTAINER_ID/publish?provider=instagram"
+```
 
 ## Providers
 
@@ -95,8 +103,6 @@ Returns media details + individual reach, views, saves, shares, comments, likes.
 |------------|---------|
 | Instagram  | ✅      |
 | TikTok     | 🔜      |
-
-Add new providers by implementing `SocialProvider` in `src/social/` and registering in `registry.ts`.
 
 ## Development
 

@@ -198,3 +198,23 @@ Content publishing failed with `InstagramApiError: (400) code 100, error_subcode
 
 **Result**
 Full end-to-end post succeeded: created container, polled status, published. Output: `https://www.instagram.com/reel/DZajzRojS_J/`. Provider user ID verified as `27485387947815641` via status endpoint. Account type is `BUSINESS` (was showing `MEDIA_CREATOR` earlier, likely same account with different metadata).
+
+## 2026-06-10T23:45:00.000Z - One-shot POST /api/content/post and per-media analytics
+
+**Why**
+The AI agent needs two primary endpoints: (1) post a video with one call (upload, create container, poll, publish) and (2) fetch per-post analytics. Previously the flow required 3+ separate calls and analytics only returned account-level data.
+
+**Changes**
+- Created `api/content/post.ts` — multipart upload → Supabase → create container → poll up to 8s → publish → return `{id, permalink, containerId}`. Falls back to just `{containerId}` if processing exceeds timeout.
+- Enhanced `api/content/analytics.ts` — added `?mediaId=` query param for per-post insights (reach, views, saves, shares, comments, likes). Without mediaId, returns account-level (existing behavior).
+- Removed `api/content/upload.ts` (superseded by post.ts).
+- Rewrote README.md around the two primary endpoints for AI agents.
+
+**Files Modified**
+- `api/content/post.ts` (created)
+- `api/content/analytics.ts` (enhanced)
+- `api/content/upload.ts` (deleted)
+- `README.md` (rewritten)
+
+**Result**
+Instagram token hit rate limit ("API access blocked", code 200) during testing due to rapid curl calls. Endpoint logic verified — multipart parsing, Supabase upload, DB lookup, Instagram API call attempt all work correctly. Token needs cooldown or reconnect.

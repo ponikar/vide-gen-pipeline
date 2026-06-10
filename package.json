@@ -6,6 +6,7 @@
   "scripts": {
     "generate": "tsx src/cli.ts",
     "connect": "tsx scripts/connect.ts",
+    "upload": "tsx scripts/upload.ts",
     "post": "tsx src/post.ts",
     "analytics": "tsx src/analytics.ts",
     "migrate": "tsx scripts/migrate.ts",

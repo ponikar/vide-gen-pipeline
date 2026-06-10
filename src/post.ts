@@ -35,9 +35,7 @@ async function main(): Promise<void> {
   const { uploadUrl, publicUrl } = await fetch(`${BASE_URL}/api/content/upload-url`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      pathname: `${Date.now()}-${videoPath.split('/').pop()}`,
-    }),
+    body: JSON.stringify({ pathname: `${Date.now()}-${videoPath.split('/').pop()}` }),
   }).then((r) => {
     if (!r.ok) throw new Error(`Failed to get upload URL: ${r.status}`);
     return r.json() as Promise<{ uploadUrl: string; publicUrl: string }>;
@@ -48,48 +46,50 @@ async function main(): Promise<void> {
     headers: { 'Content-Type': 'video/mp4' },
     body: videoBuffer,
   });
+  console.log('Uploaded. Creating media container...');
 
-  console.log('Creating media container...');
-  const { containerId } = await fetch(`${BASE_URL}/api/content/create`, {
+  const result = await fetch(`${BASE_URL}/api/content/post`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ provider, blobUrl: publicUrl, caption }),
   }).then((r) => {
-    if (!r.ok) throw new Error(`Failed to create post: ${r.status}`);
-    return r.json() as Promise<{ containerId: string }>;
+    if (!r.ok) throw new Error(`Failed to post: ${r.status}`);
+    return r.json() as Promise<Record<string, unknown>>;
   });
 
-  console.log('Waiting for processing...');
-
-  const POLL_RETRIES = 30;
-  const POLL_INTERVAL_MS = 5000;
-
-  for (let attempt = 0; attempt < POLL_RETRIES; attempt++) {
-    const status = await fetch(
-      `${BASE_URL}/api/content/post/${containerId}/status?provider=${provider}`,
-    ).then((r) => r.json() as Promise<{ status: string; errorMessage?: string }>);
-
-    if (status.status === 'FINISHED') break;
-    if (status.status === 'ERROR') {
-      throw new Error(status.errorMessage ?? 'Processing failed');
-    }
-    if (status.status === 'EXPIRED') {
-      throw new Error('Container expired before publishing');
-    }
-
-    await sleep(POLL_INTERVAL_MS);
+  if (result.error) {
+    throw new Error(String(result.error));
   }
 
-  console.log('Publishing...');
-  const result = await fetch(
-    `${BASE_URL}/api/content/post/${containerId}/publish?provider=${provider}`,
-    { method: 'POST' },
-  ).then((r) => {
-    if (!r.ok) throw new Error(`Failed to publish: ${r.status}`);
-    return r.json() as Promise<{ id: string; permalink: string }>;
-  });
+  if (result.permalink) {
+    console.log(`\nPosted! ${result.permalink}`);
+  } else {
+    console.log(`\nContainer created: ${result.containerId}`);
+    console.log('Processing...');
+    const containerId = String(result.containerId);
 
-  console.log(`\nPosted! ${result.permalink}`);
+    const POLL_RETRIES = 30;
+    for (let attempt = 0; attempt < POLL_RETRIES; attempt++) {
+      await sleep(5000);
+      const status = await fetch(
+        `${BASE_URL}/api/content/post/${containerId}/status?provider=${provider}`,
+      ).then((r) => r.json() as Promise<{ status: string; errorMessage?: string }>);
+
+      if (status.status === 'FINISHED') break;
+      if (status.status === 'ERROR') throw new Error(status.errorMessage ?? 'Processing failed');
+      if (status.status === 'EXPIRED') throw new Error('Container expired');
+    }
+
+    const published = await fetch(
+      `${BASE_URL}/api/content/post/${containerId}/publish?provider=${provider}`,
+      { method: 'POST' },
+    ).then((r) => {
+      if (!r.ok) throw new Error(`Failed to publish: ${r.status}`);
+      return r.json() as Promise<{ permalink: string }>;
+    });
+
+    console.log(`\nPosted! ${published.permalink}`);
+  }
 }
 
 function sleep(ms: number): Promise<void> {
