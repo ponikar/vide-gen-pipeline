@@ -1,22 +1,23 @@
 import type { InstagramProfile } from './types.js';
 
-const API_VERSION = 'v22.0';
-const FB_BASE = `https://graph.facebook.com/${API_VERSION}`;
+const AUTH_BASE = 'https://www.instagram.com';
+const API_BASE = 'https://api.instagram.com';
+const GRAPH_BASE = 'https://graph.instagram.com';
 
 export function getAuthUrl(params: {
   appId: string;
   redirectUri: string;
   state: string;
 }): string {
-  const url = new URL(`https://www.facebook.com/${API_VERSION}/dialog/oauth`);
+  const url = new URL(`${AUTH_BASE}/oauth/authorize`);
   url.searchParams.set('client_id', params.appId);
   url.searchParams.set('redirect_uri', params.redirectUri);
-  url.searchParams.set('state', params.state);
   url.searchParams.set('response_type', 'code');
   url.searchParams.set(
     'scope',
     'instagram_business_basic,instagram_business_content_publish',
   );
+  url.searchParams.set('state', params.state);
   return url.toString();
 }
 
@@ -26,13 +27,19 @@ export async function exchangeCode(params: {
   appSecret: string;
   redirectUri: string;
 }): Promise<{ accessToken: string; userId: string }> {
-  const url = new URL(`${FB_BASE}/oauth/access_token`);
-  url.searchParams.set('client_id', params.appId);
-  url.searchParams.set('client_secret', params.appSecret);
-  url.searchParams.set('redirect_uri', params.redirectUri);
-  url.searchParams.set('code', params.code);
+  const body = new URLSearchParams();
+  body.set('client_id', params.appId);
+  body.set('client_secret', params.appSecret);
+  body.set('grant_type', 'authorization_code');
+  body.set('redirect_uri', params.redirectUri);
+  body.set('code', params.code);
 
-  const res = await fetch(url.toString());
+  const res = await fetch(`${API_BASE}/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Token exchange failed: ${text}`);
@@ -47,14 +54,12 @@ export async function exchangeCode(params: {
 
 export async function getLongLivedToken(params: {
   accessToken: string;
-  appId: string;
   appSecret: string;
 }): Promise<{ accessToken: string; expiresIn: number }> {
-  const url = new URL(`${FB_BASE}/oauth/access_token`);
-  url.searchParams.set('grant_type', 'fb_exchange_token');
-  url.searchParams.set('client_id', params.appId);
+  const url = new URL(`${GRAPH_BASE}/access_token`);
+  url.searchParams.set('grant_type', 'ig_exchange_token');
   url.searchParams.set('client_secret', params.appSecret);
-  url.searchParams.set('fb_exchange_token', params.accessToken);
+  url.searchParams.set('access_token', params.accessToken);
 
   const res = await fetch(url.toString());
   if (!res.ok) {
@@ -72,37 +77,29 @@ export async function getLongLivedToken(params: {
 export async function refreshToken(
   accessToken: string,
 ): Promise<{ accessToken: string; expiresIn: number } | null> {
-  return null;
-}
-
-export async function getInstagramBusinessAccount(params: {
-  accessToken: string;
-}): Promise<{ id: string; username: string }> {
-  const url = new URL(`${FB_BASE}/me/instagram_business_account`);
-  url.searchParams.set('access_token', params.accessToken);
-  url.searchParams.set('fields', 'id,username');
+  const url = new URL(`${GRAPH_BASE}/refresh_access_token`);
+  url.searchParams.set('grant_type', 'ig_refresh_token');
+  url.searchParams.set('access_token', accessToken);
 
   const res = await fetch(url.toString());
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to get Instagram business account: ${text}`);
-  }
+  if (!res.ok) return null;
 
-  const data = (await res.json()) as { id: string; username: string };
-  return data;
+  const data = (await res.json()) as Record<string, unknown>;
+  return {
+    accessToken: data.access_token as string,
+    expiresIn: Number(data.expires_in ?? 0),
+  };
 }
 
 export async function getProfile(
   accessToken: string,
 ): Promise<InstagramProfile> {
-  const ia = await getInstagramBusinessAccount({ accessToken });
-
-  const url = new URL(`${FB_BASE}/${ia.id}`);
-  url.searchParams.set('access_token', accessToken);
+  const url = new URL(`${GRAPH_BASE}/me`);
   url.searchParams.set(
     'fields',
     'id,username,name,profile_picture_url,account_type,followers_count,media_count',
   );
+  url.searchParams.set('access_token', accessToken);
 
   const res = await fetch(url.toString());
   if (!res.ok) {
