@@ -44,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const uploadRes = await fetch(uploadData.signedUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'video/mp4' },
-        body: videoBuffer,
+        body: videoBuffer as any,
       });
 
       if (!uploadRes.ok) return res.status(500).json({ error: 'Upload to storage failed' });

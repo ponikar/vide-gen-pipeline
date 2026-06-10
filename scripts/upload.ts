@@ -44,7 +44,7 @@ async function main(): Promise<void> {
   await fetch(uploadUrl, {
     method: 'PUT',
     headers: { 'Content-Type': 'video/mp4' },
-    body: videoBuffer,
+    body: videoBuffer as any,
   });
 
   console.log(publicUrl);
