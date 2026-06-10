@@ -52,7 +52,7 @@ export class InstagramApiError extends Error {
     public status: number,
     public body: string,
   ) {
-    super(`Instagram API error (${status})`, { cause: body });
+    super(`Instagram API error (${status}): ${body}`, { cause: body });
     this.name = 'InstagramApiError';
   }
 }
