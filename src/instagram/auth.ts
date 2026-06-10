@@ -18,6 +18,7 @@ export function getAuthUrl(params: {
     'instagram_business_basic,instagram_business_content_publish',
   );
   url.searchParams.set('state', params.state);
+  url.searchParams.set('force_reauth', 'true');
   return url.toString();
 }
 
