@@ -179,3 +179,22 @@ Added a self-contained `src/instagram/` module with zero external dependencies u
 
 **Result**
 `npm run typecheck` passed with zero errors. `npm test` passed with 18/18 tests. Zero new dependencies added.
+
+## 2026-06-10T18:10:00.000Z - Fix provider_user_id mismatch causing code 100/subcode 33
+
+**Why**
+Content publishing failed with `InstagramApiError: (400) code 100, error_subcode 33` — "Object with ID does not exist, cannot be loaded due to missing permissions." Root cause was a one-digit difference between the user_id from `api.instagram.com/oauth/access_token` (`27485387947815640`) and the IG User ID from `graph.instagram.com/me` (`27485387947815641`). The provider used the token-exchange user_id as the API account ID, which graph.instagram.com rejected.
+
+**Changes**
+- Changed `instagram-provider.ts` to use `profile.id` (from `graph.instagram.com/me`) instead of the `user_id` from the OAuth token exchange
+- Fixed `upload-url.ts` pathname to store videos at bucket root instead of double-prefixed `videos/videos/`
+- Updated `post.ts` CLI to not pass redundant `videos/` prefix in pathname
+- Updated stale DB row from `27485387947815640` to `27485387947815641`
+
+**Files Modified**
+- `src/social/instagram-provider.ts`
+- `api/content/upload-url.ts`
+- `src/post.ts`
+
+**Result**
+Full end-to-end post succeeded: created container, polled status, published. Output: `https://www.instagram.com/reel/DZajzRojS_J/`. Provider user ID verified as `27485387947815641` via status endpoint. Account type is `BUSINESS` (was showing `MEDIA_CREATOR` earlier, likely same account with different metadata).
