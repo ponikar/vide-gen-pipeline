@@ -1,60 +1,89 @@
-import { loadEnv, saveEnv } from './instagram/env.js';
-import { InstagramClient } from './instagram/client.js';
-import { refreshToken } from './instagram/auth.js';
-import { postReel } from './instagram/post.js';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const BASE_URL = process.env.VERCEL_API_URL ?? 'http://localhost:3000';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  if (args.length < 1) {
-    console.error('Usage: npm run instagram:post -- <video_url> [caption...]');
+  if (args.length < 2) {
+    console.error('Usage: npm run post -- <provider> <video_file> [caption...]');
+    console.error('       npm run post -- instagram out/video.mp4 "My caption"');
     process.exit(1);
   }
 
-  const [videoUrl, ...captionParts] = args;
+  const [provider, videoPath, ...captionParts] = args;
   const caption = captionParts.join(' ') || '';
 
-  const env = loadEnv();
-  const accessToken = env.INSTAGRAM_ACCESS_TOKEN;
-  const accountId = env.INSTAGRAM_ACCOUNT_ID;
-  const tokenExpiresAt = env.INSTAGRAM_TOKEN_EXPIRES_AT;
+  console.log('Uploading video...');
+  const videoBuffer = readFileSync(resolve(videoPath));
 
-  if (!accessToken || !accountId) {
-    console.error('Instagram not configured. Run "npm run instagram:setup" first.');
-    process.exit(1);
-  }
+  const { uploadUrl } = await fetch(`${BASE_URL}/api/content/upload-url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      pathname: `videos/${Date.now()}-${videoPath.split('/').pop()}`,
+    }),
+  }).then((r) => {
+    if (!r.ok) throw new Error(`Failed to get upload URL: ${r.status}`);
+    return r.json() as Promise<{ uploadUrl: string; headers: Record<string, string> }>;
+  });
 
-  let token = accessToken;
+  await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'video/mp4' },
+    body: videoBuffer,
+  });
 
-  if (tokenExpiresAt) {
-    const expiresAt = new Date(tokenExpiresAt);
-    const daysUntilExpiry = (expiresAt.getTime() - Date.now()) / 86_400_000;
-    if (daysUntilExpiry < 7) {
-      console.log('Token expiring soon, refreshing...');
-      const refreshed = await refreshToken(token);
-      if (refreshed) {
-        token = refreshed.accessToken;
-        saveEnv({
-          INSTAGRAM_ACCESS_TOKEN: refreshed.accessToken,
-          INSTAGRAM_TOKEN_EXPIRES_AT: new Date(
-            Date.now() + refreshed.expiresIn * 1000,
-          ).toISOString(),
-        });
-      } else {
-        console.error('Token refresh failed. Run "npm run instagram:setup" to reconnect.');
-        process.exit(1);
-      }
+  const blobUrl = uploadUrl.split('?')[0];
+
+  console.log('Creating media container...');
+  const { containerId } = await fetch(`${BASE_URL}/api/content/post`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, blobUrl, caption }),
+  }).then((r) => {
+    if (!r.ok) throw new Error(`Failed to create post: ${r.status}`);
+    return r.json() as Promise<{ containerId: string }>;
+  });
+
+  console.log('Waiting for processing...');
+
+  const POLL_RETRIES = 30;
+  const POLL_INTERVAL_MS = 5000;
+
+  for (let attempt = 0; attempt < POLL_RETRIES; attempt++) {
+    const status = await fetch(
+      `${BASE_URL}/api/content/post/${containerId}/status?provider=${provider}`,
+    ).then((r) => r.json() as Promise<{ status: string; errorMessage?: string }>);
+
+    if (status.status === 'FINISHED') break;
+    if (status.status === 'ERROR') {
+      throw new Error(status.errorMessage ?? 'Processing failed');
     }
+    if (status.status === 'EXPIRED') {
+      throw new Error('Container expired before publishing');
+    }
+
+    await sleep(POLL_INTERVAL_MS);
   }
 
-  const client = new InstagramClient(token);
+  console.log('Publishing...');
+  const result = await fetch(
+    `${BASE_URL}/api/content/post/${containerId}/publish?provider=${provider}`,
+    { method: 'POST' },
+  ).then((r) => {
+    if (!r.ok) throw new Error(`Failed to publish: ${r.status}`);
+    return r.json() as Promise<{ id: string; permalink: string }>;
+  });
 
-  console.log('Posting reel...');
-  const result = await postReel(client, accountId, videoUrl, caption);
   console.log(`\nPosted! ${result.permalink}`);
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 main().catch((err) => {
-  const message = err instanceof Error ? err.message : String(err);
-  console.error(message);
+  console.error(err instanceof Error ? err.message : String(err));
   process.exit(1);
 });
