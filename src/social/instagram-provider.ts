@@ -2,6 +2,7 @@ import type { SocialProvider } from './types.js';
 import {
   getAuthUrl,
   exchangeCode,
+  getLongLivedToken,
   refreshToken,
   getProfile,
 } from '../instagram/auth.js';
@@ -31,12 +32,16 @@ export class InstagramProvider implements SocialProvider {
     expiresIn: number;
   }> {
     const { accessToken, userId: providerUserId } = await exchangeCode(params);
-    const profile = await getProfile(accessToken);
-    return {
+    const longToken = await getLongLivedToken({
       accessToken,
+      appSecret: params.appSecret,
+    });
+    const profile = await getProfile(longToken.accessToken);
+    return {
+      accessToken: longToken.accessToken,
       providerUserId,
       username: profile.username,
-      expiresIn: 0,
+      expiresIn: longToken.expiresIn,
     };
   }
 
