@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   console.log('Uploading video...');
   const videoBuffer = readFileSync(resolve(videoPath));
 
-  const { uploadUrl } = await fetch(`${BASE_URL}/api/content/upload-url`, {
+  const { uploadUrl, publicUrl } = await fetch(`${BASE_URL}/api/content/upload-url`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -40,7 +40,7 @@ async function main(): Promise<void> {
     }),
   }).then((r) => {
     if (!r.ok) throw new Error(`Failed to get upload URL: ${r.status}`);
-    return r.json() as Promise<{ uploadUrl: string; headers: Record<string, string> }>;
+    return r.json() as Promise<{ uploadUrl: string; publicUrl: string }>;
   });
 
   await fetch(uploadUrl, {
@@ -49,13 +49,11 @@ async function main(): Promise<void> {
     body: videoBuffer,
   });
 
-  const blobUrl = uploadUrl.split('?')[0];
-
   console.log('Creating media container...');
   const { containerId } = await fetch(`${BASE_URL}/api/content/post`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider, blobUrl, caption }),
+    body: JSON.stringify({ provider, blobUrl: publicUrl, caption }),
   }).then((r) => {
     if (!r.ok) throw new Error(`Failed to create post: ${r.status}`);
     return r.json() as Promise<{ containerId: string }>;
