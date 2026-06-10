@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   });
 
   console.log('Creating media container...');
-  const { containerId } = await fetch(`${BASE_URL}/api/content/post`, {
+  const { containerId } = await fetch(`${BASE_URL}/api/content/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ provider, blobUrl: publicUrl, caption }),
