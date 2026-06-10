@@ -31,15 +31,16 @@ export class InstagramProvider implements SocialProvider {
     username: string;
     expiresIn: number;
   }> {
-    const { accessToken, userId: providerUserId } = await exchangeCode(params);
+    const { accessToken } = await exchangeCode(params);
     const longToken = await getLongLivedToken({
       accessToken,
+      appId: params.appId,
       appSecret: params.appSecret,
     });
     const profile = await getProfile(longToken.accessToken);
     return {
       accessToken: longToken.accessToken,
-      providerUserId,
+      providerUserId: profile.id,
       username: profile.username,
       expiresIn: longToken.expiresIn,
     };
