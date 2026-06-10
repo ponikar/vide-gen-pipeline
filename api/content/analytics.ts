@@ -12,6 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 
   const providerName = (req.query.provider as string) ?? 'instagram';
+  const mediaId = req.query.mediaId as string | undefined;
 
   const accounts = await db
     .select()
@@ -25,6 +26,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const account = accounts[0];
   const client = new InstagramClient(account.accessToken);
+
+  if (mediaId) {
+    const { getMediaInsights } = await import('../../src/instagram/analytics.js');
+    const [insights, media] = await Promise.all([
+      getMediaInsights(client, mediaId),
+      client.get<{ id: string; permalink: string; media_type: string; timestamp: string; caption?: string }>(
+        `/${mediaId}`,
+        { fields: 'id,permalink,media_type,timestamp,caption' },
+      ),
+    ]);
+
+    return res.json({
+      username: account.username,
+      media,
+      insights,
+    });
+  }
 
   const [accountInsights, recentMedia] = await Promise.all([
     getAccountInsights(client, account.providerUserId),

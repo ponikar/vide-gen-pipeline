@@ -11,6 +11,7 @@ const supabase = createClient(
 );
 
 const BUCKET = 'videos';
+const POLL_TIMEOUT_MS = 8000;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -70,9 +71,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const result = await provider.createMedia(account.accessToken, account.providerUserId, publicUrl, caption);
+    const { containerId } = await provider.createMedia(
+      account.accessToken, account.providerUserId, publicUrl, caption,
+    );
 
-    res.json({ containerId: result.containerId, publicUrl });
+    const start = Date.now();
+    let finished = false;
+    while (Date.now() - start < POLL_TIMEOUT_MS) {
+      const status = await provider.getMediaStatus(account.accessToken, containerId);
+      if (status.status === 'FINISHED') { finished = true; break; }
+      if (status.status === 'ERROR') {
+        return res.json({ containerId, error: status.errorMessage });
+      }
+      await sleep(1000);
+    }
+
+    if (!finished) {
+      return res.json({ containerId });
+    }
+
+    const published = await provider.publishMedia(account.accessToken, account.providerUserId, containerId);
+
+    res.json({
+      id: published.id,
+      permalink: published.permalink,
+      containerId,
+    });
   } catch (err) {
     const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     res.status(500).json({ error: message });
@@ -109,4 +133,8 @@ function parseMultipart(
 
     req.pipe(bb);
   });
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
