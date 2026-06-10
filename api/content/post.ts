@@ -25,22 +25,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const account = accounts[0];
 
-  if (
-    account.tokenExpiresAt &&
-    account.tokenExpiresAt.getTime() < Date.now()
-  ) {
-    const refreshed = await provider.refreshToken(account.accessToken);
-    if (!refreshed) {
-      return res.status(401).json({ error: 'Token expired, reconnect required' });
+  if (account.tokenExpiresAt) {
+    const daysUntilExpiry =
+      (account.tokenExpiresAt.getTime() - Date.now()) / 86_400_000;
+    if (daysUntilExpiry < 7) {
+      const refreshed = await provider.refreshToken(account.accessToken);
+      if (!refreshed) {
+        return res.status(401).json({ error: 'Token expired, reconnect required' });
+      }
+      await db
+        .update(schema.connectedAccounts)
+        .set({
+          accessToken: refreshed.accessToken,
+          tokenExpiresAt: new Date(Date.now() + refreshed.expiresIn * 1000),
+        })
+        .where(eq(schema.connectedAccounts.id, account.id));
+      account.accessToken = refreshed.accessToken;
     }
-    await db
-      .update(schema.connectedAccounts)
-      .set({
-        accessToken: refreshed.accessToken,
-        tokenExpiresAt: new Date(Date.now() + refreshed.expiresIn * 1000),
-      })
-      .where(eq(schema.connectedAccounts.id, account.id));
-    account.accessToken = refreshed.accessToken;
   }
 
   const result = await provider.createMedia(
