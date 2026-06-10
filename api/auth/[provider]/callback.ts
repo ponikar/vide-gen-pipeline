@@ -59,6 +59,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           eq(schema.connectedAccounts.providerUserId, result.providerUserId),
         );
     } else {
+      // Remove stale connections for this provider before inserting the new one
+      await db
+        .delete(schema.connectedAccounts)
+        .where(eq(schema.connectedAccounts.provider, provider.name));
       await db.insert(schema.connectedAccounts).values({
         provider: provider.name,
         providerUserId: result.providerUserId,
