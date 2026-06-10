@@ -36,7 +36,7 @@ async function main(): Promise<void> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      pathname: `videos/${Date.now()}-${videoPath.split('/').pop()}`,
+      pathname: `${Date.now()}-${videoPath.split('/').pop()}`,
     }),
   }).then((r) => {
     if (!r.ok) throw new Error(`Failed to get upload URL: ${r.status}`);

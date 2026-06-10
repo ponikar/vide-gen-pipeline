@@ -13,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const body = req.body as Record<string, unknown> | undefined;
   const filename =
-    (body?.pathname as string | undefined) ?? `videos/${Date.now()}.mp4`;
+    (body?.pathname as string | undefined) ?? `${Date.now()}.mp4`;
 
   const { data, error } = await supabase.storage
     .from(BUCKET)
