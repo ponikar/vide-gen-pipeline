@@ -23,7 +23,7 @@ export async function getAccountInsights(
   until?: string,
 ): Promise<Insight[]> {
   const params: Record<string, string> = {
-    metric: 'reach,views,profile_visits,follows',
+    metric: 'reach,profile_views,follower_count',
     period: 'day',
   };
   if (since) params.since = since;

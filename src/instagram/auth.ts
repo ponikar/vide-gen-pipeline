@@ -15,7 +15,7 @@ export function getAuthUrl(params: {
   url.searchParams.set('response_type', 'code');
   url.searchParams.set(
     'scope',
-    'instagram_business_basic,instagram_business_content_publish',
+    'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights',
   );
   url.searchParams.set('state', params.state);
   url.searchParams.set('force_reauth', 'true');
