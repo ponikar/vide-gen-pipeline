@@ -1,9 +1,22 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import { buildTimedCaptions, getCaptionLines } from "./subtitles.js";
+import { getCaptionLines } from "./subtitles.js";
 import type { GeneratedSegment } from "./types.js";
 import { runCommand } from "./process.js";
+
+type CaptionSlot = {
+  text: string;
+  startSeconds: number;
+  endSeconds: number;
+};
+
+type MergedSlot = {
+  captionText: string;
+  startSeconds: number;
+  endSeconds: number;
+  segments: GeneratedSegment[];
+};
 
 export async function renderVideo(options: {
   sourceVideoPath: string;
@@ -11,30 +24,31 @@ export async function renderVideo(options: {
   outputPath: string;
   tempDir: string;
 }): Promise<void> {
-  const captions = buildTimedCaptions(options.segments);
-  const captionImagePaths = await createCaptionImages(captions, options.tempDir);
+  const slots = buildCaptionSlots(options.segments);
+  const mergedSlots = mergeConsecutiveSameSpeaker(slots, options.segments);
 
-  // Encode each segment separately (1 overlay per ffmpeg call = low memory)
   const segmentVideoPaths: string[] = [];
-  for (let i = 0; i < captions.length; i++) {
-    const caption = captions[i];
-    const segment = options.segments[i]; // segments and captions are parallel
-    const captionImagePath = captionImagePaths[i];
+
+  for (let i = 0; i < mergedSlots.length; i++) {
+    const slot = mergedSlots[i];
+    const captionImagePath = path.join(options.tempDir, `caption-${String(i).padStart(4, "0")}.png`);
+    await createCaptionImage(slot.captionText, captionImagePath);
+
+    const audioPath = await mergeAudio(slot.segments, options.tempDir, i);
     const segmentPath = path.join(options.tempDir, `segment-${String(i).padStart(4, "0")}.mp4`);
 
     await encodeSegment({
       sourceVideoPath: options.sourceVideoPath,
       captionImagePath,
-      audioPath: segment.audioPath,
-      startSeconds: caption.startSeconds,
-      durationSeconds: segment.durationSeconds,
+      audioPath,
+      startSeconds: slot.startSeconds,
+      durationSeconds: slot.endSeconds - slot.startSeconds,
       outputPath: segmentPath,
     });
 
     segmentVideoPaths.push(segmentPath);
   }
 
-  // Concatenate all segment videos
   const videoConcatPath = path.join(options.tempDir, "video-concat.txt");
   const videoConcatContent = segmentVideoPaths.map((p) => `file '${escapeConcatPath(p)}'`).join("\n");
   await writeFile(videoConcatPath, `${videoConcatContent}\n`, "utf8");
@@ -53,7 +67,6 @@ export async function renderVideo(options: {
     videoOnlyPath,
   ]);
 
-  // Concatenate audio
   const audioConcatPath = path.join(options.tempDir, "audio-concat.txt");
   const audioConcatContent = options.segments.map((s) => `file '${escapeConcatPath(s.audioPath)}'`).join("\n");
   await writeFile(audioConcatPath, `${audioConcatContent}\n`, "utf8");
@@ -72,7 +85,6 @@ export async function renderVideo(options: {
     audioOnlyPath,
   ]);
 
-  // Merge video + audio
   await mkdir(path.dirname(options.outputPath), { recursive: true });
   await runCommand("ffmpeg", [
     "-y",
@@ -86,6 +98,82 @@ export async function renderVideo(options: {
     "+faststart",
     options.outputPath,
   ]);
+}
+
+function buildCaptionSlots(segments: GeneratedSegment[]): CaptionSlot[] {
+  let cursor = 0;
+  return segments.map((s) => {
+    const start = cursor;
+    const end = cursor + s.durationSeconds;
+    cursor = end;
+    return { text: s.text, startSeconds: start, endSeconds: end };
+  });
+}
+
+function mergeConsecutiveSameSpeaker(
+  slots: CaptionSlot[],
+  segments: GeneratedSegment[],
+): MergedSlot[] {
+  const merged: MergedSlot[] = [];
+  let i = 0;
+
+  while (i < slots.length) {
+    const group: { slot: CaptionSlot; segment: GeneratedSegment }[] = [
+      { slot: slots[i], segment: segments[i] },
+    ];
+
+    // Merge consecutive segments from the same speaker
+    while (
+      i + 1 < slots.length &&
+      segments[i + 1].speaker === segments[i].speaker
+    ) {
+      i++;
+      group.push({ slot: slots[i], segment: segments[i] });
+    }
+
+    const captionText = group.map((g) => g.slot.text).join(" ");
+    merged.push({
+      captionText,
+      startSeconds: group[0].slot.startSeconds,
+      endSeconds: group[group.length - 1].slot.endSeconds,
+      segments: group.map((g) => g.segment),
+    });
+
+    i++;
+  }
+
+  return merged;
+}
+
+async function mergeAudio(
+  segments: GeneratedSegment[],
+  tempDir: string,
+  groupIndex: number,
+): Promise<string> {
+  if (segments.length === 1) {
+    return segments[0].audioPath;
+  }
+
+  const concatPath = path.join(tempDir, `audio-group-${String(groupIndex).padStart(4, "0")}.txt`);
+  const outPath = path.join(tempDir, `audio-group-${String(groupIndex).padStart(4, "0")}.wav`);
+
+  const content = segments.map((s) => `file '${escapeConcatPath(s.audioPath)}'`).join("\n");
+  await writeFile(concatPath, `${content}\n`, "utf8");
+
+  await runCommand("ffmpeg", [
+    "-y",
+    "-f",
+    "concat",
+    "-safe",
+    "0",
+    "-i",
+    concatPath,
+    "-c",
+    "copy",
+    outPath,
+  ]);
+
+  return outPath;
 }
 
 async function encodeSegment(options: {
@@ -135,28 +223,20 @@ async function encodeSegment(options: {
   ]);
 }
 
-async function createCaptionImages(
-  captions: Array<{ index: number; text: string }>,
-  tempDir: string,
-): Promise<string[]> {
-  const paths: string[] = [];
-
-  for (const caption of captions) {
-    const captionImagePath = path.join(tempDir, `caption-${caption.index.toString().padStart(4, "0")}.png`);
-    await sharp(Buffer.from(createCaptionSvg(getCaptionLines(caption.text))))
-      .png()
-      .toFile(captionImagePath);
-    paths.push(captionImagePath);
-  }
-
-  return paths;
+async function createCaptionImage(
+  captionText: string,
+  outputPath: string,
+): Promise<void> {
+  const lines = getCaptionLines(captionText);
+  await sharp(Buffer.from(createCaptionSvg(lines))).png().toFile(outputPath);
 }
 
 function createCaptionSvg(lines: string[]): string {
-  // 720x1280 viewport, font scaled proportionally
-  const startY = lines.length === 1 ? 1050 : 1020;
+  const maxLines = Math.min(lines.length, 3);
+  const startY = maxLines === 1 ? 1050 : maxLines === 2 ? 1020 : 980;
   const lineHeight = 50;
   const text = lines
+    .slice(0, maxLines)
     .map((line, index) => {
       const y = startY + index * lineHeight;
       return `<text x="360" y="${y}" text-anchor="middle">${escapeXml(line)}</text>`;
