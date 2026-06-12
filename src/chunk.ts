@@ -1,7 +1,7 @@
 import type { CaptionChunk, DialogueLine } from "./types.js";
 
-const MAX_WORDS = 8;
-const MAX_CHARS = 42;
+const MAX_WORDS = 50;
+const MAX_CHARS = 200;
 
 export function chunkDialogue(dialogue: DialogueLine[]): CaptionChunk[] {
   const chunks: CaptionChunk[] = [];
@@ -25,22 +25,10 @@ export function splitText(text: string): string[] {
     return [];
   }
 
-  const sentenceParts = normalized.match(/[^.!?]+[.!?]?/g) ?? [normalized];
-  const chunks: string[] = [];
-
-  for (const part of sentenceParts) {
-    chunks.push(...splitLongPart(part.trim()));
-  }
-
-  return chunks;
-}
-
-function splitLongPart(text: string): string[] {
-  const words = text.split(" ").filter(Boolean);
   const chunks: string[] = [];
   let current: string[] = [];
 
-  for (const word of words) {
+  for (const word of normalized.split(" ").filter(Boolean)) {
     const next = [...current, word];
     const nextText = next.join(" ");
 

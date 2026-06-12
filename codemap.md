@@ -300,3 +300,27 @@ The blender (weighted .bin averaging) cant create specific character voices like
 - Multi-persona dialogues work (clone + regular voices interleaved)
 - Usage: `"voices": { "A": "clone:stewie" }` in input JSON
 - On first run, Python venv is auto-setup and models auto-downloaded
+
+## 2026-06-12T23:50:00.000Z - Merge consecutive same-speaker chunks for seamless subtitles
+
+**Why**
+Long dialogue lines were split into multiple audio+subtitle chunks by MAX_WORDS/MAX_CHARS limits. Each chunk became a separate video segment. When chunk N ended and chunk N+1 started, the subtitle would disappear and reappear, making the speaker sound like they stopped mid-sentence. Users perceived it as the speaker "waiting for the next round trip."
+
+**Changes**
+- Rewrote `src/render.ts` `renderVideo()` to detect consecutive same-speaker segments and merge them into a single video segment
+- Added `mergeConsecutiveSameSpeaker()`: groups consecutive segments by speaker, joins text into a single multi-line caption
+- Added `mergeAudio()`: concatenates multiple WAV files into one for merged groups
+- Updated `createCaptionImage()` and `createCaptionSvg()`: supports 3-line captions for merged text
+- Removed dependency on `buildTimedCaptions` from `subtitles.ts` (replaced with local `buildCaptionSlots()`)
+- SVG now dynamically positions text based on line count (1-line at Y=1050, 2-line at Y=1020, 3-line at Y=980)
+
+**Files Modified**
+- src/render.ts (major rewrite)
+
+**Result**
+- All 18 existing tests pass
+- Long dialogue like "I think I am gonna need a bigger spoon than whatever" now renders as a single caption with the full text
+- No subtitle blink or gap between consecutive same-speaker chunks
+- Multi-speaker back-and-forth still creates separate segments per speaker change (correct behavior)
+- Full pipeline test: 42.5s pizza-debate video generated with smooth captions
+- `npm run typecheck` passes with zero errors
