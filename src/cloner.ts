@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import type { CaptionChunk, GeneratedSegment } from "./types.js";
+import { probeDuration } from "./process.js";
 
 const CLONER_SCRIPT = path.resolve(
   import.meta.dirname,
@@ -55,14 +56,16 @@ export async function generateCloneSegments(
     throw new Error(`Voice cloning failed: ${result.message}`);
   }
 
-  return chunks.map((chunk, i) => ({
-    ...chunk,
-    audioPath: path.join(
+  const segments: GeneratedSegment[] = [];
+  for (const chunk of chunks) {
+    const audioPath = path.join(
       tempDir,
       `segment-${chunk.index.toString().padStart(4, "0")}.wav`,
-    ),
-    durationSeconds: result.durations[i],
-  }));
+    );
+    const durationSeconds = await probeDuration(audioPath);
+    segments.push({ ...chunk, audioPath, durationSeconds });
+  }
+  return segments;
 }
 
 async function runCloneProcess(request: CloneRequest): Promise<CloneResponse> {
