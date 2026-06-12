@@ -14,10 +14,11 @@ export async function renderVideo(options: {
   const captions = buildTimedCaptions(options.segments);
   const captionImagePaths = await createCaptionImages(captions, options.tempDir);
 
+  // Encode each segment separately (1 overlay per ffmpeg call = low memory)
   const segmentVideoPaths: string[] = [];
   for (let i = 0; i < captions.length; i++) {
     const caption = captions[i];
-    const segment = options.segments[i];
+    const segment = options.segments[i]; // segments and captions are parallel
     const captionImagePath = captionImagePaths[i];
     const segmentPath = path.join(options.tempDir, `segment-${String(i).padStart(4, "0")}.mp4`);
 
@@ -33,6 +34,7 @@ export async function renderVideo(options: {
     segmentVideoPaths.push(segmentPath);
   }
 
+  // Concatenate all segment videos
   const videoConcatPath = path.join(options.tempDir, "video-concat.txt");
   const videoConcatContent = segmentVideoPaths.map((p) => `file '${escapeConcatPath(p)}'`).join("\n");
   await writeFile(videoConcatPath, `${videoConcatContent}\n`, "utf8");
@@ -51,6 +53,7 @@ export async function renderVideo(options: {
     videoOnlyPath,
   ]);
 
+  // Concatenate audio
   const audioConcatPath = path.join(options.tempDir, "audio-concat.txt");
   const audioConcatContent = options.segments.map((s) => `file '${escapeConcatPath(s.audioPath)}'`).join("\n");
   await writeFile(audioConcatPath, `${audioConcatContent}\n`, "utf8");
@@ -69,6 +72,7 @@ export async function renderVideo(options: {
     audioOnlyPath,
   ]);
 
+  // Merge video + audio
   await mkdir(path.dirname(options.outputPath), { recursive: true });
   await runCommand("ffmpeg", [
     "-y",
@@ -149,12 +153,10 @@ async function createCaptionImages(
 }
 
 function createCaptionSvg(lines: string[]): string {
-  const maxLines = Math.min(lines.length, 3);
-  const startY = maxLines === 1 ? 1050 : maxLines === 2 ? 1020 : 990;
-  const lineHeight = 48;
-  const fontSize = maxLines > 2 ? 34 : 38;
+  // 720x1280 viewport, font scaled proportionally
+  const startY = lines.length === 1 ? 1050 : 1020;
+  const lineHeight = 50;
   const text = lines
-    .slice(0, maxLines)
     .map((line, index) => {
       const y = startY + index * lineHeight;
       return `<text x="360" y="${y}" text-anchor="middle">${escapeXml(line)}</text>`;
@@ -166,7 +168,7 @@ function createCaptionSvg(lines: string[]): string {
   <style>
     text {
       font-family: Arial, Helvetica, sans-serif;
-      font-size: ${fontSize}px;
+      font-size: 38px;
       font-weight: 800;
       fill: white;
       stroke: black;

@@ -6,9 +6,10 @@ describe("splitText", () => {
     expect(splitText("This is short.")).toEqual(["This is short."]);
   });
 
-  it("keeps text intact within generous limits", () => {
+  it("splits long text into readable chunks", () => {
     const chunks = splitText("This sentence is much too long for one short-form caption and should be split clearly.");
-    expect(chunks.length).toBe(1);
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.every((chunk) => chunk.split(" ").length <= 8 || chunk.length <= 42)).toBe(true);
   });
 });
 
