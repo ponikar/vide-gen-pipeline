@@ -219,6 +219,30 @@ The AI agent needs two primary endpoints: (1) post a video with one call (upload
 **Result**
 Instagram token hit rate limit ("API access blocked", code 200) during testing due to rapid curl calls. Endpoint logic verified — multipart parsing, Supabase upload, DB lookup, Instagram API call attempt all work correctly. Token needs cooldown or reconnect.
 
+## 2026-06-12T20:15:00.000Z - Add custom voice blending for Peter Griffin voice
+
+**Why**
+The pipeline only supported pre-built Kokoro voice embeddings (like af_bella, am_puck). No Peter Griffin voice exists online. Needed voice blending to approximate the voice via weighted averaging of existing male embeddings.
+
+**Changes**
+- Created `scripts/blend-voices.ts` — CLI utility that reads two+ voice .bin files from kokoro-js, computes weighted average of Float32 embeddings (130,560 floats per voice), writes blended .bin to project `voices/` dir and copies to `node_modules/kokoro-js/voices/` for runtime loading.
+- Modified `src/tts.ts` — After loading the TTS model, custom .bin files from `voices/` are copied to kokoro-js's voices directory. The internal `_validate_voice` method is patched to accept any voice name (bypasses frozen VOICES allowlist). `assertConfiguredVoices` checks both built-in and custom voice names.
+- Created `voices/` directory for storing custom blended .bin files (gitignored via `voices/*.bin`).
+- Default Peter Griffin blend: 60% am_puck (nasal/reedy) + 40% am_michael (body/warmth) = `am_peter`.
+
+**Files Modified**
+- `scripts/blend-voices.ts` (created)
+- `src/tts.ts` (modified)
+- `.gitignore` (added voices/*.bin)
+- `codemap.md` (this entry)
+
+**Result**
+- Blend script verified: `npx tsx scripts/blend-voices.ts am_puck:0.6 am_michael:0.4 --output am_peter` produces correct 522,240-byte .bin
+- TTS generation with custom voice `am_peter` works end-to-end: generates valid 24kHz mono WAV
+- Full pipeline test passed: `npm run generate` with `am_peter` voice produces MP4 with correct duration
+- `npm run typecheck` passes with zero errors
+- Usage: configure voice as `"am_peter"` in input JSON or via `--voice A=am_peter`
+
 ## 2026-06-11T00:15:00.000Z - Upload CLI + dual-mode post for large files
 
 **Why**
@@ -242,3 +266,37 @@ Videos average 15MB, exceeding Vercel's 4.5MB serverless body limit. The one-sho
 
 **Result**
 `npm run typecheck` passes. `npm test` passes (18/18). `npm run upload` confirmed working — uploads file to Supabase and returns public URL. JSON mode confirmed working — Vercel API accepts blobUrl and processes the post. Only blocker is the rate-limited Instagram token from earlier testing. Large file flow is verified and ready once token is unblocked.
+
+## 2026-06-12T21:00:00.000Z - Add voice cloning pipeline (KokoClone-based)
+
+**Why**
+The blender (weighted .bin averaging) cant create specific character voices like Stewie Griffin. Needed actual voice cloning from reference audio. KokoClone (kokoro-onnx TTS + Kanade voice conversion) provides a viable approach.
+
+**Changes**
+- Created `scripts/run-cloner.py` — self-contained Python script that auto-sets up venv, downloads models (Kanade 25Hz-clean, Kokoro ONNX), processes JSON batches via stdin, returns durations via stdout
+- Created `src/cloner.ts` — Node.js wrapper spawning Python subprocess, piping segments and reference paths
+- Modified `src/tts.ts` — dispatches clone: prefixed voices to cloner, groups clone segments by speaker for batching, mixes clone + regular voices in same dialogue
+- Modified `src/config.ts` — resolveVoice remains unchanged (clone: prefix handled in tts.ts)
+- Created `scripts/create-voice.ts` — one-command voice creation from YouTube URL or local file
+- Updated `package.json` — added voice:create and setup:cloner scripts
+- Updated `.gitignore` — added .cloner/ and voices/*.wav
+- Created `voices/am_stewie.bin` — blended voice (50% bm_george + 50% bf_lily) for quick use
+
+**Files Modified**
+- scripts/run-cloner.py (created)
+- src/cloner.ts (created)
+- scripts/create-voice.ts (created)
+- src/tts.ts (modified)
+- package.json (modified)
+- .gitignore (modified)
+- codemap.md (this entry)
+- README.md (added voice cloning docs)
+
+**Result**
+- Stewie reference audio downloaded from YouTube, trimmed to 15s
+- Voice cloning verified: generates single-speaker WAVs matching reference voice characteristics
+- Full pipeline test: `npm run generate` with clone:stewie voice produces valid MP4 with cloned audio
+- Each segment takes ~2s on CPU after model warmup
+- Multi-persona dialogues work (clone + regular voices interleaved)
+- Usage: `"voices": { "A": "clone:stewie" }` in input JSON
+- On first run, Python venv is auto-setup and models auto-downloaded

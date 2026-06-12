@@ -1,9 +1,14 @@
 node_modules/
 out/
 dist/
+voices/*.bin
+!voices/am_peter.bin
+!voices/am_stewie.bin
 input.*.json
 .DS_Store
 npm-debug.log*
 .cache/
 .venv/
+.cloner/
+voices/*.wav
 .env

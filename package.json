@@ -13,6 +13,8 @@
     "instagram:setup": "tsx scripts/connect.ts instagram",
     "instagram:post": "tsx src/post.ts instagram",
     "instagram:analytics": "tsx src/analytics.ts instagram",
+    "voice:create": "tsx scripts/create-voice.ts",
+    "setup:cloner": "python3 scripts/run-cloner.py",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
