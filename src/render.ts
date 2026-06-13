@@ -211,10 +211,11 @@ function createHighlightSvg(words: string[], highlightIndex: number): string {
   let wordIdx = 0;
   const lineEls = wrappedLines.map((lineWords, li) => {
     const y = startY + li * lineHeight;
-    const tspans = lineWords.map((w) => {
+    const tspans = lineWords.map((w, wi) => {
       const isHighlight = wordIdx === highlightIndex;
       wordIdx++;
-      return `<tspan fill="${isHighlight ? "#FFD700" : "white"}">${escapeXml(w)} </tspan>`;
+      const prefix = wi === 0 ? "" : " ";
+      return `<tspan fill="${isHighlight ? "#FFD700" : "white"}">${prefix}${escapeXml(w)}</tspan>`;
     }).join("");
     return `<text x="360" y="${y}" text-anchor="middle">${tspans}</text>`;
   }).join("");
