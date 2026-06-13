@@ -1,25 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { chunkDialogue, splitText } from "../src/chunk.js";
-
-describe("splitText", () => {
-  it("keeps short text intact", () => {
-    expect(splitText("This is short.")).toEqual(["This is short."]);
-  });
-
-  it("splits long text into readable chunks", () => {
-    const chunks = splitText("This sentence is much too long for one short-form caption and should be split clearly.");
-    expect(chunks.length).toBeGreaterThan(1);
-    expect(chunks.every((chunk) => chunk.split(" ").length <= 8 || chunk.length <= 42)).toBe(true);
-  });
-});
+import { chunkDialogue } from "../src/chunk.js";
 
 describe("chunkDialogue", () => {
-  it("preserves speakers while chunking", () => {
+  it("creates one chunk per dialogue line", () => {
     const chunks = chunkDialogue([
       { speaker: "A", text: "First line." },
       { speaker: "B", text: "Second line." },
     ]);
 
-    expect(chunks.map((chunk) => chunk.speaker)).toEqual(["A", "B"]);
+    expect(chunks).toHaveLength(2);
+    expect(chunks.map((c) => c.speaker)).toEqual(["A", "B"]);
+    expect(chunks.map((c) => c.text)).toEqual(["First line.", "Second line."]);
+  });
+
+  it("preserves full text without splitting", () => {
+    const chunks = chunkDialogue([
+      { speaker: "A", text: "This sentence is much too long for one short-form caption and should be kept intact." },
+    ]);
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].text).toBe("This sentence is much too long for one short-form caption and should be kept intact.");
   });
 });

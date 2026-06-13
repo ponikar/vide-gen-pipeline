@@ -153,10 +153,12 @@ async function createCaptionImages(
 }
 
 function createCaptionSvg(lines: string[]): string {
-  // 720x1280 viewport, font scaled proportionally
-  const startY = lines.length === 1 ? 1050 : 1020;
-  const lineHeight = 50;
+  const count = Math.min(lines.length, 4);
+  const fontSize = count <= 2 ? 38 : 34;
+  const lineHeight = 48;
+  const startY = { 1: 1050, 2: 1020, 3: 990, 4: 960 }[count] ?? 960;
   const text = lines
+    .slice(0, count)
     .map((line, index) => {
       const y = startY + index * lineHeight;
       return `<text x="360" y="${y}" text-anchor="middle">${escapeXml(line)}</text>`;
@@ -168,7 +170,7 @@ function createCaptionSvg(lines: string[]): string {
   <style>
     text {
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 38px;
+      font-size: ${fontSize}px;
       font-weight: 800;
       fill: white;
       stroke: black;

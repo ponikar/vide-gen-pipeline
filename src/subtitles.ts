@@ -45,37 +45,34 @@ export function formatSrtTime(seconds: number): string {
   return `${pad(hours)}:${pad(minutes)}:${pad(wholeSeconds)},${milliseconds.toString().padStart(3, "0")}`;
 }
 
+const MAX_LINE_LEN = 40;
+
 function wrapCaptionText(text: string): string {
   const normalized = text.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 34) {
+  if (normalized.length <= MAX_LINE_LEN) {
     return normalized;
   }
 
   const words = normalized.split(" ");
-  let bestBreak = 1;
-  let bestScore = Number.POSITIVE_INFINITY;
+  const lines: string[] = [];
+  let current: string[] = [];
 
-  for (let index = 1; index < words.length; index += 1) {
-    const firstLine = words.slice(0, index).join(" ");
-    const secondLine = words.slice(index).join(" ");
-    if (firstLine.length > 34 || secondLine.length > 34) {
-      continue;
-    }
-
-    const balancePenalty = Math.abs(firstLine.length - secondLine.length);
-    const overflowPenalty = Math.max(firstLine.length, secondLine.length);
-    const score = balancePenalty + overflowPenalty * 0.1;
-    if (score < bestScore) {
-      bestScore = score;
-      bestBreak = index;
+  for (const word of words) {
+    const next = [...current, word];
+    const nextText = next.join(" ");
+    if (nextText.length > MAX_LINE_LEN && current.length > 0) {
+      lines.push(current.join(" "));
+      current = [word];
+    } else {
+      current = next;
     }
   }
 
-  if (!Number.isFinite(bestScore)) {
-    return normalized;
+  if (current.length > 0) {
+    lines.push(current.join(" "));
   }
 
-  return `${words.slice(0, bestBreak).join(" ")}\n${words.slice(bestBreak).join(" ")}`;
+  return lines.join("\n");
 }
 
 function pad(value: number): string {
