@@ -324,3 +324,36 @@ Long dialogue lines were split into multiple audio+subtitle chunks by MAX_WORDS/
 - Multi-speaker back-and-forth still creates separate segments per speaker change (correct behavior)
 - Full pipeline test: 42.5s pizza-debate video generated with smooth captions
 - `npm run typecheck` passes with zero errors
+
+## 2026-06-15T15:58:00.000Z - Chat overlay format (iMessage-style bubbles)
+
+**Why**
+The video generator needed a chat overlay format for iMessage-style conversations over brainrot footage. Initial implementation used Playwright headless Chrome for HTML/CSS rendering, but Chrome's headless screenshots rendered all-black due to a CDP compositing bug. Pivoted to SVG+sharp rendering with transparent PNG overlays composited via FFmpeg.
+
+**Changes**
+- Added `Format`, `ChatConfig`, `ParticipantStyle` types to `src/types.ts`
+- Added Zod validation for `format` + `chatConfig` in `src/config.ts`, with auto-default participants from voice keys
+- Created `src/chat.ts` — SVG-based iMessage bubble renderer using sharp. Produces per-segment transparent PNG overlays with:
+  - Dark semi-transparent backdrop behind chat area
+  - Bottom-pinned layout keeping latest messages at a fixed position
+  - Proper bubble padding (10px top/bottom, 16px left/right)
+  - Bubble+tail as a merged visual group with drop-shadow
+  - Name labels on speaker change, "Delivered" status on sent messages
+- Updated `src/render.ts` — routes to `renderChatVideo()`, encodes per-segment static overlay with FFmpeg
+- Updated `src/cli.ts` — passes `format` and `chatConfig` through to render pipeline
+- Removed Playwright dependency (unused, SVG handles everything)
+
+**Files Modified**
+- `src/types.ts` (added Format, ChatConfig, ParticipantStyle)
+- `src/config.ts` (added chatConfig validation, auto-default participants)
+- `src/chat.ts` (created)
+- `src/render.ts` (added chat pipeline routing)
+- `src/cli.ts` (passes format+chatConfig)
+- `input.chat.json` (created for testing)
+- `codemap.md` (this entry)
+
+**Result**
+- `npm run typecheck` passes with zero errors
+- Full pipeline test with 4-speaker dialogue produces valid 720×1280 H.264/AAC MP4 at 10s
+- Overlay images render as transparent RGBA PNGs with correct bubble positioning
+- No browser dependency — all rendering done via sharp

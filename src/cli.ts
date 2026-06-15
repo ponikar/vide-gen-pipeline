@@ -36,6 +36,8 @@ async function main(): Promise<void> {
       segments,
       outputPath: config.output,
       tempDir,
+      format: config.format,
+      chatConfig: config.chatConfig,
     });
 
     console.log(`Generated ${config.output}`);

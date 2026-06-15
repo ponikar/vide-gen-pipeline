@@ -3,12 +3,27 @@ export type DialogueLine = {
   text: string;
 };
 
+export type Format = "subtitles" | "chat";
+
+export type ParticipantStyle = {
+  label: string;
+  color: string;
+  align: "left" | "right";
+};
+
+export type ChatConfig = {
+  participants: Record<string, ParticipantStyle>;
+  typingIndicator?: boolean;
+};
+
 export type InputConfig = {
   video: string;
   output: string;
   ttsSpeed: number;
   voices: Record<string, string>;
   dialogue: DialogueLine[];
+  format: Format;
+  chatConfig?: ChatConfig;
 };
 
 export type CliOptions = {

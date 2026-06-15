@@ -42,7 +42,11 @@ Generate a short-form video from a config JSON:
 npm run generate -- input.json
 ```
 
-**Input JSON shape:**
+**Two output formats:**
+
+---
+
+#### A) Subtitle Format (default) — captions over video
 
 ```json
 {
@@ -60,7 +64,70 @@ npm run generate -- input.json
 }
 ```
 
-**Options:**
+---
+
+#### B) Chat Format — iMessage-style bubbles
+
+Add `"format": "chat"` to render the dialogue as iPhone Messages bubbles with voiceover:
+
+```json
+{
+  "video": "https://...subway-surfers.mp4",
+  "output": "./out/chat-reel.mp4",
+  "format": "chat",
+  "ttsSpeed": 1.0,
+  "voices": {
+    "A": "am_michael",
+    "B": "af_heart"
+  },
+  "dialogue": [
+    { "speaker": "A", "text": "Bro did you see the new season drop last night?" },
+    { "speaker": "B", "text": "No I was asleep tell me everything" },
+    { "speaker": "A", "text": "They added a whole new biome. Giant cherry blossom forest." }
+  ]
+}
+```
+
+**How chat works:**
+- The background video plays full-screen
+- A chat overlay (iMessage light mode: `#F2F2F7` background, `#007AFF` sent, `#E5E5EA` received) appears at the bottom
+- Each dialogue line is one chat message. Messages appear one by one as the voiceover plays
+- Old messages stay at fixed positions on screen — no flickering or shifting
+- The first speaker is auto-assigned to the right (blue bubbles), second to the left (gray bubbles)
+
+**Optional — customise participant appearance:**
+
+```json
+{
+  "format": "chat",
+  "chatConfig": {
+    "participants": {
+      "A": { "label": "Peter Griffin", "color": "#007AFF", "align": "right" },
+      "B": { "label": "Stewie Griffin", "color": "#E5E5EA", "align": "left" }
+    }
+  },
+  "voices": {
+    "A": "clone:peter",
+    "B": "am_stewie"
+  },
+  "dialogue": [
+    { "speaker": "A", "text": "What about you?" },
+    { "speaker": "B", "text": "Row seven. Listed as contingency." }
+  ]
+}
+```
+
+**Video sources for chat format:**
+The `video` field accepts any direct MP4 URL. For brainrot-style content, use the pre-indexed clips:
+
+- Subway Surfers clips: `https://hlneqkcervrvftffotxn.supabase.co/storage/v1/object/public/videos/subway-surfers/...`
+- Minecraft Parkour clips: `https://hlneqkcervrvftffotxn.supabase.co/storage/v1/object/public/videos/subway-surfers/Minecraft_Parkour_...`
+
+See `video-urls.md` for the full list of available clips.
+
+---
+
+**Common options (both formats):**
 ```
 --out <path>              Override output path
 --video <path-or-url>     Override video source

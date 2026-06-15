@@ -1,11 +1,22 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import type { CliOptions, InputConfig } from "./types.js";
+import type { ChatConfig, CliOptions, InputConfig, ParticipantStyle } from "./types.js";
 
 const dialogueSchema = z.object({
   speaker: z.string().trim().min(1).optional(),
   text: z.string().trim().min(1),
+}).strict();
+
+const participantStyleSchema = z.object({
+  label: z.string().trim().min(1),
+  color: z.string().trim().min(1),
+  align: z.enum(["left", "right"]),
+}).strict();
+
+const chatConfigSchema = z.object({
+  participants: z.record(participantStyleSchema),
+  typingIndicator: z.boolean().optional(),
 }).strict();
 
 const inputSchema = z.object({
@@ -14,6 +25,8 @@ const inputSchema = z.object({
   ttsSpeed: z.number().positive().max(3).optional(),
   voices: z.record(z.string().trim().min(1)).optional(),
   dialogue: z.array(dialogueSchema).min(1),
+  format: z.enum(["subtitles", "chat"]).optional(),
+  chatConfig: chatConfigSchema.optional(),
 }).strict();
 
 type RawInputConfig = z.infer<typeof inputSchema>;
@@ -146,6 +159,23 @@ export function normalizeConfig(
     ...input.voices,
     ...overrides.voiceOverrides,
   };
+  const format = input.format ?? "subtitles";
+
+  let chatConfig: ChatConfig | undefined = input.chatConfig as ChatConfig | undefined;
+  if (format === "chat" && !chatConfig) {
+    const speakerKeys = Object.keys(voices);
+    const participants: Record<string, ParticipantStyle> = {};
+    const colors = ["#007AFF", "#E5E5EA"];
+    const aligns: Array<"right" | "left"> = ["right", "left"];
+    speakerKeys.forEach((key, i) => {
+      participants[key] = {
+        label: key,
+        color: colors[i % 2],
+        align: aligns[i % 2],
+      };
+    });
+    chatConfig = { participants, typingIndicator: true };
+  }
 
   return {
     video: resolveMaybeLocalPath(video, inputDir),
@@ -156,6 +186,8 @@ export function normalizeConfig(
       speaker: line.speaker ?? "A",
       text: line.text,
     })),
+    format,
+    chatConfig,
   };
 }
 
@@ -218,6 +250,24 @@ Input JSON shape:
   "voices": { "A": "af_heart", "B": "am_adam" },
   "dialogue": [
     { "speaker": "A", "text": "Here is the first line." }
+  ]
+
+Chat format (iMessage overlay):
+{
+  "format": "chat",
+  "video": "./assets/subway.mp4",
+  "output": "./out/chat.mp4",
+  "ttsSpeed": 1.0,
+  "voices": { "Peter": "clone:voices/peter.wav", "Stewie": "am_stewie" },
+  "chatConfig": {
+    "participants": {
+      "Peter": { "label": "Peter Griffin", "color": "#E5E5EA", "align": "left" },
+      "Stewie": { "label": "Stewie Griffin", "color": "#007AFF", "align": "right" }
+    }
+  },
+  "dialogue": [
+    { "speaker": "Peter", "text": "What about you" },
+    { "speaker": "Stewie", "text": "Row seven. Listed as contingency." }
   ]
 }`;
 }
