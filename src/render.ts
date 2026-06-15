@@ -4,7 +4,7 @@ import sharp from "sharp";
 import { buildTimedCaptions, getCaptionLines } from "./subtitles.js";
 import type { ChatConfig, Format, GeneratedSegment } from "./types.js";
 import { runCommand } from "./process.js";
-import { renderChatOverlayImages, type ChatOverlaySet } from "./chat.js";
+import { renderChatFrames } from "./chat.js";
 
 type RenderOptions = {
   sourceVideoPath: string;
@@ -33,30 +33,37 @@ async function renderChatVideo(options: RenderOptions): Promise<void> {
     throw new Error("chatConfig.participants must have at least one participant");
   }
 
-  // Render static overlay images (one per segment)
-  const overlaySets = await renderChatOverlayImages(options.segments, options.chatConfig, options.tempDir);
+  // Render the overlay as a per-frame PNG sequence (fixed panel + scrolling
+  // messages). FFmpeg composites the whole sequence as one overlay stream so
+  // the scroll animates smoothly across frames.
+  const frames = await renderChatFrames(options.segments, options.chatConfig, options.tempDir);
+  const audioPath = await concatAudioFiles(options.segments, options.tempDir);
 
-  const captions = buildTimedCaptions(options.segments);
-
-  const segmentVideoPaths: string[] = [];
-  for (let i = 0; i < options.segments.length; i++) {
-    const segment = options.segments[i];
-    const overlays = overlaySets[i];
-    const segmentPath = path.join(options.tempDir, `segment-${String(i).padStart(4, "0")}.mp4`);
-
-    await encodeSegmentWithStaticChat({
-      sourceVideoPath: options.sourceVideoPath,
-      startSeconds: captions[i].startSeconds,
-      durationSeconds: segment.durationSeconds,
-      imagePath: overlays.after,
-      audioPath: segment.audioPath,
-      outputPath: segmentPath,
-    });
-
-    segmentVideoPaths.push(segmentPath);
-  }
-
-  await finalizeVideo(segmentVideoPaths, options.segments, options.outputPath, options.tempDir);
+  await mkdir(path.dirname(options.outputPath), { recursive: true });
+  await runCommand("ffmpeg", [
+    "-y",
+    "-stream_loop", "-1",
+    "-i", options.sourceVideoPath,
+    "-framerate", String(frames.fps),
+    "-i", frames.pattern,
+    "-i", audioPath,
+    "-filter_complex",
+    "[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280[base];" +
+    "[base][1:v]overlay=0:0:format=auto[ov];[ov]format=yuv420p[vout]",
+    "-map", "[vout]",
+    "-map", "2:a:0",
+    "-t", frames.totalDuration.toFixed(3),
+    "-threads", "1",
+    "-c:v", "libx264",
+    "-preset", "ultrafast",
+    "-crf", "28",
+    "-pix_fmt", "yuv420p",
+    "-c:a", "aac",
+    "-b:a", "128k",
+    "-shortest",
+    "-movflags", "+faststart",
+    options.outputPath,
+  ]);
 }
 
 async function renderSubtitlesVideo(options: RenderOptions): Promise<void> {
@@ -132,37 +139,29 @@ async function encodeSegment(options: {
   ]);
 }
 
-async function encodeSegmentWithStaticChat(options: {
-  sourceVideoPath: string;
-  startSeconds: number;
-  durationSeconds: number;
-  imagePath: string;
-  audioPath: string;
-  outputPath: string;
-}): Promise<void> {
+async function concatAudioFiles(
+  segments: Array<{ audioPath: string }>,
+  tempDir: string,
+): Promise<string> {
+  const audioConcatPath = path.join(tempDir, "audio-concat.txt");
+  const audioConcatContent = segments.map((s) => `file '${escapeConcatPath(s.audioPath)}'`).join("\n");
+  await writeFile(audioConcatPath, `${audioConcatContent}\n`, "utf8");
+
+  const audioOnlyPath = path.join(tempDir, "audio-only.wav");
   await runCommand("ffmpeg", [
     "-y",
-    "-ss", options.startSeconds.toFixed(3),
-    "-t", options.durationSeconds.toFixed(3),
-    "-i", options.sourceVideoPath,
-    "-i", options.audioPath,
-    "-i", options.imagePath,
-    "-filter_complex",
-    "[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280[base];" +
-    "[base][2:v]overlay=0:0,format=yuv420p[vout]",
-    "-map", "[vout]",
-    "-map", "1:a:0",
-    "-threads", "1",
-    "-c:v", "libx264",
-    "-preset", "ultrafast",
-    "-crf", "28",
-    "-pix_fmt", "yuv420p",
-    "-c:a", "aac",
-    "-b:a", "128k",
-    "-shortest",
-    "-movflags", "+faststart",
-    options.outputPath,
+    "-f",
+    "concat",
+    "-safe",
+    "0",
+    "-i",
+    audioConcatPath,
+    "-c",
+    "copy",
+    audioOnlyPath,
   ]);
+
+  return audioOnlyPath;
 }
 
 async function finalizeVideo(
@@ -191,23 +190,7 @@ async function finalizeVideo(
   ]);
 
   // Concatenate audio
-  const audioConcatPath = path.join(tempDir, "audio-concat.txt");
-  const audioConcatContent = segments.map((s) => `file '${escapeConcatPath(s.audioPath)}'`).join("\n");
-  await writeFile(audioConcatPath, `${audioConcatContent}\n`, "utf8");
-
-  const audioOnlyPath = path.join(tempDir, "audio-only.wav");
-  await runCommand("ffmpeg", [
-    "-y",
-    "-f",
-    "concat",
-    "-safe",
-    "0",
-    "-i",
-    audioConcatPath,
-    "-c",
-    "copy",
-    audioOnlyPath,
-  ]);
+  const audioOnlyPath = await concatAudioFiles(segments, tempDir);
 
   // Merge video + audio
   await mkdir(path.dirname(outputPath), { recursive: true });

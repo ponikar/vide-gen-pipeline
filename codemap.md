@@ -357,3 +357,56 @@ The video generator needed a chat overlay format for iMessage-style conversation
 - Full pipeline test with 4-speaker dialogue produces valid 720×1280 H.264/AAC MP4 at 10s
 - Overlay images render as transparent RGBA PNGs with correct bubble positioning
 - No browser dependency — all rendering done via sharp
+
+## 2026-06-15T18:20:00.000Z - Fix chat auto-scroll: fixed panel + clipped scrolling message area
+
+**Why**
+The chat overlay scrolled the entire panel — including the header chrome — upward as
+messages appeared. `buildSvg()` derived the panel background rect's top from absolute
+message positions (`computePositions` pinned the whole transcript's bottom to the frame
+bottom), so the panel translated/resized every frame: the header slid off the top, bubbles
+bled above the panel onto the background video, and empty space accumulated at the bottom.
+There was also no header at all (only a bare background rect) and no clipping region, and
+one static PNG was emitted per segment so scrolling could never animate.
+
+**Changes**
+- Rewrote `src/chat.ts` around a fixed-panel model:
+  - Fixed panel geometry constants (`PANEL_TOP/BOTTOM`, `STATUSBAR_H`, `HEADER_H`,
+    `MSG_AREA_TOP/BOTTOM/H`) that never change. Switched to iMessage dark mode (black panel).
+  - Added `renderHeader()` — status bar (time + battery), back chevron, avatar + contact
+    name (derived from the first `align:"left"` participant), and a divider. Drawn fixed,
+    on top of messages.
+  - `computeVirtualLayout()` stacks every message top-to-bottom in an infinite virtual
+    column (y from 0); positions never move.
+  - `offsetForCount()` implements `viewport_offset = max(0, content_height − MSG_AREA_H)`;
+    `scrollStateAt()` applies an ease-out-cubic interpolation over `ANIM_SECONDS` (0.35s)
+    between the previous and target offsets when a new message appears.
+  - `buildFrameSvg()` renders the panel, then a `clipPath`-bounded message area containing
+    a `<g transform="translate(0, MSG_AREA_TOP − offset)">` of the visible bubbles (older
+    rows scroll above y=0 and are clipped out), then the fixed header on top.
+  - New `renderChatFrames()` emits a per-frame PNG sequence (`chat-frame-%05d.png`) at 30fps
+    for the whole timeline; identical consecutive frames (static holds) are `copyFile`d
+    instead of re-rendered.
+- Updated `src/render.ts` `renderChatVideo()` to composite the PNG sequence as a single
+  FFmpeg overlay stream (`-framerate 30 -i chat-frame-%05d.png`, `-stream_loop -1` on the
+  source) muxed with the concatenated audio, instead of per-segment static overlays.
+  Removed `encodeSegmentWithStaticChat()`; extracted `concatAudioFiles()` shared by the
+  subtitles finalize path.
+
+**Files Modified**
+- `src/chat.ts` (rewritten)
+- `src/render.ts` (chat pipeline rewritten, audio-concat extracted)
+- `codemap.md` (this entry)
+
+**Result**
+- `npm run typecheck` passes with zero errors. `npx vitest run` is 16/17 — the one failure
+  (`config.test.ts` CLI override) is a pre-existing Windows path-separator assertion,
+  unrelated to this change.
+- Verified end-to-end via a synthetic harness (dummy sine WAV segments + `testsrc2`
+  background, 14-message conversation that overflows the 712px message area): output is a
+  valid 720×1280 MP4 at the expected 16.4s.
+- Frame inspection confirmed: header/status bar/avatar are pixel-identical across early
+  (1 msg) and late (14 msgs) frames → panel never translates; newest message pins to the
+  bottom of the message area on overflow; the oldest visible bubble is clipped cleanly at
+  the divider and never bleeds onto the background video; mid-animation vs settled frames
+  show an interpolated (eased) offset, confirming smooth scrolling rather than a jump.
