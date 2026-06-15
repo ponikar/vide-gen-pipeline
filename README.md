@@ -89,11 +89,13 @@ Add `"format": "chat"` to render the dialogue as iPhone Messages bubbles with vo
 ```
 
 **How chat works:**
-- The background video plays full-screen
-- A chat overlay (iMessage light mode: `#F2F2F7` background, `#007AFF` sent, `#E5E5EA` received) appears at the bottom
-- Each dialogue line is one chat message. Messages appear one by one as the voiceover plays
-- Old messages stay at fixed positions on screen — no flickering or shifting
-- The first speaker is auto-assigned to the right (blue bubbles), second to the left (gray bubbles)
+- The background gameplay video plays full-frame behind the overlay
+- A dark-mode iMessage panel (black `#000000` background, `#0A84FF` sent bubbles, `#262629` received bubbles, white text) is composited on top as a **fixed, centered rectangle** in the upper-middle of the frame. The gameplay stays visible above, below, and on both sides of the panel.
+- The panel has a **fixed header** (iOS status bar with time + signal/wifi/battery, a back chevron, a centered avatar + contact name, and a video-call button) that never moves.
+- Below the header is a **scrolling message area**. Each dialogue line is one chat message; messages appear one by one in sync with the voiceover.
+- When the conversation overflows the message area, it **auto-scrolls**: the newest message stays pinned to the bottom while older bubbles slide up and are clipped at the header divider (smooth ~350ms ease-out). The header and panel never scroll.
+- The first speaker is auto-assigned to the right (blue, "sent"), the second to the left (gray, "received").
+- The overlay is rendered as a per-frame PNG sequence and composited in a single FFmpeg pass, so the scroll animates smoothly.
 
 **Optional — customise participant appearance:**
 
@@ -120,8 +122,11 @@ Add `"format": "chat"` to render the dialogue as iPhone Messages bubbles with vo
 ---
 
 **Chat layout notes:**
-- The chat overlay height is capped at 600px (47% of the frame). If the AI agent generates long text or many messages, older bubbles scroll off the top instead of filling the entire screen.
-- iMessage light-mode colors: `#F2F2F7` background, `#007AFF` sent bubbles, `#E5E5EA` received bubbles.
+- The panel is a fixed centered rectangle (~90% canvas width, ~42% canvas height, positioned in the upper-middle). Its size and position never change for the whole video.
+- The message area is a fixed-height viewport below the header. Long conversations auto-scroll within it (newest pinned to the bottom, oldest clipped at the top) — they never overflow the panel or bleed onto the background video.
+- 1:1 conversation style: no per-bubble sender name labels (the contact name shows once, in the header).
+- Dark-mode colors: black `#000000` panel, `#0A84FF` sent bubbles, `#262629` received bubbles, white text, `#007AFF` header controls.
+- The `color` field in `chatConfig.participants` is currently informational — bubble fills come from `align` (right = sent/blue, left = received/gray).
 
 ---
 

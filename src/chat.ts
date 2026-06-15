@@ -11,45 +11,49 @@ const FH = 1280;
 const PANEL_BG = "#000000";
 const SENT = "#0A84FF";
 const RCVD = "#262629";
-const STATUS = "#8E8E93";
 const DIVIDER = "#2A2A2C";
-const ACCENT = "#0A84FF";
+const ACCENT = "#007AFF";
 const AVATAR_BG = "#3A3A3C";
 const TXS = "#FFFFFF";
 const TXR = "#FFFFFF";
 const HEADER_TX = "#FFFFFF";
 
 // Fixed chat panel geometry — NEVER changes for the whole video.
-const PANEL_X = 0;
-const PANEL_W = FW;
-const PANEL_TOP = 380;
-const PANEL_BOTTOM = 1240;
+// A centered rectangle in the upper-middle: gameplay video shows above (small
+// strip), below (larger strip), and on both sides of the panel.
+const PANEL_MARGIN_X = 36; // ~5% side margins
+const PANEL_X = PANEL_MARGIN_X; // 36
+const PANEL_W = FW - 2 * PANEL_MARGIN_X; // 648 (~90% of canvas width)
+const PANEL_CX = PANEL_X + PANEL_W / 2; // 360 (canvas center)
+const PANEL_RIGHT = PANEL_X + PANEL_W; // 684
+const PANEL_TOP = 90; // ~7% down from the top
+const PANEL_BOTTOM = 630; // 540px tall; below this is the bottom gameplay strip
 const PANEL_R = 28;
 const STATUSBAR_H = 44;
 const HEADER_H = 92;
 // Message area: the only region that scrolls. Below header, above panel bottom.
-const MSG_AREA_TOP = PANEL_TOP + STATUSBAR_H + HEADER_H; // 516
-const MSG_AREA_BOTTOM = PANEL_BOTTOM - 12; // 1228
-const MSG_AREA_H = MSG_AREA_BOTTOM - MSG_AREA_TOP; // 712
+const MSG_AREA_TOP = PANEL_TOP + STATUSBAR_H + HEADER_H; // 226
+const MSG_AREA_BOTTOM = PANEL_BOTTOM - 12; // 618
+const MSG_AREA_H = MSG_AREA_BOTTOM - MSG_AREA_TOP; // 392
 const MSG_TOP_PAD = 10;
 
-// Bubble metrics
-const R = 17;
-const PT = 10;
-const PB = 10;
-const PL = 16;
-const PR = 16;
+// Bubble metrics (tuned for the 720px canvas — padding/width values from the
+// spec are given at 1080px and scaled by 2/3 here).
+const R = 22; // pill-shaped corners
+const PT = 14; // vertical padding
+const PB = 14;
+const PL = 20; // horizontal padding
+const PR = 20;
 const TW = 10;
 const TH = 8;
-const BM = 8;
-const GG = 4;
-const SG = 4;
-const FS = 17;
-const LH = 22;
-const CW9 = 9;
-const MBW = 420;
-const LS = 13;
-const SS = 11;
+const BM = 9; // gap between messages
+const FS = 20; // message font size
+const FW_WEIGHT = 600; // semibold message text
+const LH = 24; // tight line-height for wrapped lines
+const ASCENT = 15; // first-line baseline offset from bubble top padding
+const CW9 = 11; // approx glyph advance at FS=20 (semibold)
+const MBW = 543; // max text width -> bubble caps at ~81% of canvas
+const SIDE_MARGIN = 12; // bubbles sit close to the canvas edges
 
 // Scroll animation
 const FPS = 30;
@@ -97,9 +101,7 @@ type Row = {
   bubbleY: number;
   m: M;
   isSent: boolean;
-  showLabel: boolean;
   color: string;
-  label: string;
   textColor: string;
 };
 
@@ -109,16 +111,12 @@ type Row = {
 function computeVirtualLayout(messages: CM[]): Row[] {
   const rows: Row[] = [];
   let cur = MSG_TOP_PAD;
-  let last: string | null = null;
 
   for (const msg of messages) {
     const m = measure(msg.text);
     const isSent = msg.participant.align === "right";
-    const showLabel = !isSent && msg.speaker !== last;
-    const labelH = showLabel ? LS + GG : 0;
-    const statusH = isSent ? SS + SG : 0;
-    const bubbleY = cur + labelH;
-    const height = labelH + m.height + statusH + BM;
+    const bubbleY = cur;
+    const height = m.height + BM;
 
     rows.push({
       yTop: cur,
@@ -126,14 +124,11 @@ function computeVirtualLayout(messages: CM[]): Row[] {
       bubbleY,
       m,
       isSent,
-      showLabel,
       color: isSent ? SENT : RCVD,
-      label: msg.participant.label,
       textColor: isSent ? TXS : TXR,
     });
 
     cur += height;
-    last = msg.speaker;
   }
 
   return rows;
@@ -174,7 +169,7 @@ function scrollStateAt(rows: Row[], appearTimes: number[], t: number): { visible
 }
 
 function tail(x: number, y: number, w: number, h: number, sent: boolean): string {
-  const ty = y + h - 22;
+  const ty = y + h - R;
   if (sent) {
     return `${x + w},${ty} ${x + w + TW},${ty + TH / 2} ${x + w},${ty + TH}`;
   }
@@ -183,15 +178,9 @@ function tail(x: number, y: number, w: number, h: number, sent: boolean): string
 
 function renderBubble(row: Row): string {
   const parts: string[] = [];
-  const { m, isSent, showLabel, color, label, textColor, yTop, bubbleY } = row;
+  const { m, isSent, color, textColor, bubbleY } = row;
 
-  if (showLabel) {
-    parts.push(
-      `<text x="16" y="${yTop + LS}" font-size="${LS}" fill="${STATUS}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif" font-weight="500">${esc(label)}</text>`,
-    );
-  }
-
-  const x = isSent ? FW - m.width - 16 : 16;
+  const x = isSent ? PANEL_RIGHT - m.width - SIDE_MARGIN : PANEL_X + SIDE_MARGIN;
 
   parts.push(
     `<g filter="url(#s)">`,
@@ -201,46 +190,81 @@ function renderBubble(row: Row): string {
   );
 
   const tx = x + PL;
-  const tb = bubbleY + PT + 14;
+  const tb = bubbleY + PT + ASCENT;
   for (let li = 0; li < m.lines.length; li++) {
     parts.push(
-      `<text x="${tx}" y="${tb + li * LH}" font-size="${FS}" fill="${textColor}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">${esc(m.lines[li])}</text>`,
-    );
-  }
-
-  if (isSent) {
-    const sy = bubbleY + m.height + SG + SS;
-    parts.push(
-      `<text x="${x + m.width - 4}" y="${sy}" text-anchor="end" font-size="${SS}" fill="${STATUS}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">Delivered</text>`,
+      `<text x="${tx}" y="${tb + li * LH}" font-size="${FS}" font-weight="${FW_WEIGHT}" fill="${textColor}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">${esc(m.lines[li])}</text>`,
     );
   }
 
   return parts.join("\n");
 }
 
+// Right-side status bar cluster, left-to-right: signal bars -> wifi -> battery%.
+// Anchored to the panel's right edge.
+function renderStatusIcons(): string {
+  const cy = PANEL_TOP + 21;
+  const bottom = cy + 6;
+  const parts: string[] = [];
+
+  // Cellular signal bars (4, increasing height)
+  const heights = [5, 8, 11, 14];
+  for (let i = 0; i < heights.length; i++) {
+    const h = heights[i];
+    parts.push(`<rect x="${PANEL_RIGHT - 128 + i * 7}" y="${bottom - h}" width="4" height="${h}" rx="1" fill="${HEADER_TX}"/>`);
+  }
+
+  // Wifi (two arcs + dot, opening downward)
+  const wx = PANEL_RIGHT - 88;
+  parts.push(
+    `<path d="M ${wx - 8} ${cy - 1.5} A 11 11 0 0 1 ${wx + 8} ${cy - 1.5}" fill="none" stroke="${HEADER_TX}" stroke-width="2" stroke-linecap="round"/>`,
+    `<path d="M ${wx - 5} ${cy + 1.5} A 6.5 6.5 0 0 1 ${wx + 5} ${cy + 1.5}" fill="none" stroke="${HEADER_TX}" stroke-width="2" stroke-linecap="round"/>`,
+    `<circle cx="${wx}" cy="${bottom - 1}" r="1.6" fill="${HEADER_TX}"/>`,
+  );
+
+  // Battery percentage + icon
+  const batX = PANEL_RIGHT - 50;
+  const batY = cy - 6;
+  parts.push(
+    `<text x="${batX - 6}" y="${cy + 5}" text-anchor="end" font-size="13" font-weight="500" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">98</text>`,
+    `<rect x="${batX}" y="${batY}" width="24" height="12" rx="3" fill="none" stroke="${HEADER_TX}" stroke-opacity="0.5"/>`,
+    `<rect x="${batX + 2}" y="${batY + 2}" width="20" height="8" rx="1.5" fill="${HEADER_TX}"/>`,
+    `<rect x="${batX + 25}" y="${batY + 3.5}" width="2" height="5" rx="1" fill="${HEADER_TX}" fill-opacity="0.5"/>`,
+  );
+
+  return parts.join("\n");
+}
+
+// Video-camera button on the right of the header (mirrors the back chevron).
+function renderVideoButton(cy: number): string {
+  const cx = PANEL_RIGHT - 44;
+  return [
+    `<rect x="${cx - 24}" y="${cy - 17}" width="48" height="34" rx="9" fill="none" stroke="${ACCENT}" stroke-width="2"/>`,
+    `<rect x="${cx - 13}" y="${cy - 8}" width="15" height="16" rx="4" fill="none" stroke="${ACCENT}" stroke-width="2"/>`,
+    `<path d="M ${cx + 3} ${cy - 4} L ${cx + 11} ${cy - 8} L ${cx + 11} ${cy + 8} L ${cx + 3} ${cy + 4} Z" fill="none" stroke="${ACCENT}" stroke-width="2" stroke-linejoin="round"/>`,
+  ].join("\n");
+}
+
 // Fixed panel chrome: black rounded panel + status bar + contact header.
 // Identical on every frame — it must never translate or resize.
 function renderHeader(contactName: string, initial: string): string {
   const sbY = PANEL_TOP + 28;
-  const batX = FW - 58;
-  const batY = PANEL_TOP + 14;
   const avatarCy = PANEL_TOP + STATUSBAR_H + 28;
   const nameY = PANEL_TOP + STATUSBAR_H + 76;
 
   return [
-    // Status bar
-    `<text x="28" y="${sbY}" font-size="15" font-weight="600" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">9:41</text>`,
-    `<rect x="${batX}" y="${batY}" width="24" height="12" rx="3" fill="none" stroke="${HEADER_TX}" stroke-opacity="0.5"/>`,
-    `<rect x="${batX + 2}" y="${batY + 2}" width="20" height="8" rx="1.5" fill="${HEADER_TX}"/>`,
-    `<rect x="${batX + 25}" y="${batY + 3.5}" width="2" height="5" rx="1" fill="${HEADER_TX}" fill-opacity="0.5"/>`,
-    // Back chevron
-    `<path d="M 34 ${avatarCy - 10} L 24 ${avatarCy} L 34 ${avatarCy + 10}" fill="none" stroke="${ACCENT}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
+    // Status bar: time (left) + signal / wifi / battery% (right)
+    `<text x="${PANEL_X + 28}" y="${sbY}" font-size="15" font-weight="600" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">9:41</text>`,
+    renderStatusIcons(),
+    // Back chevron (left) + video button (right)
+    `<path d="M ${PANEL_X + 34} ${avatarCy - 10} L ${PANEL_X + 24} ${avatarCy} L ${PANEL_X + 34} ${avatarCy + 10}" fill="none" stroke="${ACCENT}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
+    renderVideoButton(avatarCy),
     // Avatar + contact name
-    `<circle cx="${FW / 2}" cy="${avatarCy}" r="20" fill="${AVATAR_BG}"/>`,
-    `<text x="${FW / 2}" y="${avatarCy + 6}" text-anchor="middle" font-size="18" font-weight="600" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">${esc(initial)}</text>`,
-    `<text x="${FW / 2}" y="${nameY}" text-anchor="middle" font-size="14" font-weight="600" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">${esc(contactName)}</text>`,
+    `<circle cx="${PANEL_CX}" cy="${avatarCy}" r="20" fill="${AVATAR_BG}"/>`,
+    `<text x="${PANEL_CX}" y="${avatarCy + 6}" text-anchor="middle" font-size="18" font-weight="600" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">${esc(initial)}</text>`,
+    `<text x="${PANEL_CX}" y="${nameY}" text-anchor="middle" font-size="14" font-weight="600" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">${esc(contactName)}</text>`,
     // Divider above the message area
-    `<line x1="${PANEL_X}" y1="${MSG_AREA_TOP}" x2="${PANEL_X + PANEL_W}" y2="${MSG_AREA_TOP}" stroke="${DIVIDER}" stroke-width="1"/>`,
+    `<line x1="${PANEL_X}" y1="${MSG_AREA_TOP}" x2="${PANEL_RIGHT}" y2="${MSG_AREA_TOP}" stroke="${DIVIDER}" stroke-width="1"/>`,
   ].join("\n");
 }
 

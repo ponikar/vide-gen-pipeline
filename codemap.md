@@ -410,3 +410,49 @@ one static PNG was emitted per segment so scrolling could never animate.
   bottom of the message area on overflow; the oldest visible bubble is clipped cleanly at
   the divider and never bleeds onto the background video; mid-animation vs settled frames
   show an interpolated (eased) offset, confirming smooth scrolling rather than a jump.
+
+## 2026-06-15T19:40:00.000Z - Chat overlay restyle + repositioned centered panel
+
+**Why**
+After the auto-scroll fix, the chat overlay needed visual polish and layout changes to
+look like a real 1:1 iMessage screenshot over gameplay: bigger/bolder text, fuller pill
+bubbles, a complete iOS status bar and header, no "Delivered" or per-bubble name labels,
+a shorter panel that shows more gameplay, and a centered panel with background visible on
+all four sides instead of a full-width bottom-anchored bar.
+
+**Changes** (all in `src/chat.ts`)
+- Typography/bubbles: message font 17 -> 20, regular -> semibold (600), line-height 22 -> 24
+  (tighter), padding 16x10 -> 20x14, corner radius 17 -> 22 (pill), side margins 16 -> 12,
+  max bubble width raised to ~81% of the panel width.
+- Removed the "Delivered" status text (and its layout spacing) entirely.
+- Status bar: added cellular signal bars + wifi icon + battery percentage ("98"), in
+  addition to the existing time + battery icon.
+- Header: added a blue (`#007AFF`) outlined video-call button on the right, mirroring the
+  back chevron.
+- Removed per-bubble sender name labels (1:1 iMessage shows no name above bubbles); the
+  contact name remains only in the header. Dropped the now-unused `STATUS`, `LS`, `GG`
+  constants and the `showLabel`/`label` row fields.
+- Panel height: reduced from ~67% to ~42% of the frame so more gameplay shows.
+- Panel position: changed from a full-width, bottom-anchored bar to a **fixed centered
+  rectangle** — `PANEL_MARGIN_X` (~5%) side margins (~90% width), `PANEL_TOP` ~7% from the
+  top, ~42% tall. Re-anchored every header element (time, status icons, chevron, video
+  button, avatar/name, divider) and bubble x-positions to the panel bounds
+  (`PANEL_X`/`PANEL_RIGHT`/`PANEL_CX`) instead of the full canvas. The clipPath/scroll math
+  is unchanged; it now operates inside the smaller centered viewport.
+- Updated `README.md` chat-format section to document the dark-mode centered panel, fixed
+  header chrome, and auto-scroll behavior (the old notes described the obsolete light-mode
+  bottom bar).
+
+**Files Modified**
+- `src/chat.ts`
+- `README.md`
+- `codemap.md` (this entry)
+
+**Result**
+- `npm run typecheck` passes; `npx vitest run` is 16/17 (the one failure is the pre-existing
+  Windows path-separator test in `config.test.ts`, unrelated).
+- Regenerated end-to-end over a Minecraft clip (`npm run generate -- input.json`): valid
+  720x1280 H.264/AAC MP4. Frame inspection confirmed the centered upper-middle panel with
+  gameplay visible above/below/left/right, the full status bar + video button, larger/bolder
+  pill bubbles with no "Delivered" and no per-bubble name labels, and correct auto-scroll
+  (newest pinned to bottom, older clipped at the divider, header fixed).
