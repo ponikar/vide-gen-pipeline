@@ -117,6 +117,14 @@ Add `"format": "chat"` to render the dialogue as iPhone Messages bubbles with vo
 }
 ```
 
+---
+
+**Chat layout notes:**
+- The chat overlay height is capped at 600px (47% of the frame). If the AI agent generates long text or many messages, older bubbles scroll off the top instead of filling the entire screen.
+- iMessage light-mode colors: `#F2F2F7` background, `#007AFF` sent bubbles, `#E5E5EA` received bubbles.
+
+---
+
 **Video sources for chat format:**
 The `video` field accepts any direct MP4 URL. For brainrot-style content, use the pre-indexed clips:
 

@@ -32,6 +32,7 @@ const MBW = 420;
 const LS = 13;
 const SS = 11;
 const BTM = 40;
+const MAX_CHAT_H = 600;
 
 function esc(v: string): string {
   return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
@@ -116,14 +117,27 @@ function tail(x: number, y: number, w: number, h: number, sent: boolean): string
 function buildSvg(positions: ReturnType<typeof computePositions>, showUpTo: number): string {
   const parts: string[] = [];
 
-  // Background: from startY-12 to frame bottom
-  // Use first message's y as reference for background top
-  const bgTop = positions.length > 0 ? positions[0].y - 12 : FH - BTM - 12;
+  // Determine which messages are visible within MAX_CHAT_H from the bottom
+  const lastIdx = Math.min(showUpTo, positions.length) - 1;
+  let firstVisible = 0;
+  if (positions.length > 0) {
+    const bottomY = positions[lastIdx].y + positions[lastIdx].m.height;
+    for (let i = lastIdx; i >= 0; i--) {
+      const msgBottom = positions[i].y + positions[i].m.height;
+      if (bottomY - msgBottom > MAX_CHAT_H) {
+        firstVisible = i + 1;
+        break;
+      }
+    }
+  }
+
+  // Background: from first visible message to frame bottom
+  const bgTop = positions.length > 0 ? positions[firstVisible].y - 12 : FH - BTM - 12;
   const bgH = FH - bgTop;
   parts.push(`<rect x="0" y="${bgTop}" width="${FW}" height="${bgH}" fill="${BG}" rx="20"/>`);
 
-  // Messages
-  for (let i = 0; i < showUpTo && i < positions.length; i++) {
+  // Messages (only visible ones)
+  for (let i = firstVisible; i <= lastIdx && i < positions.length; i++) {
     const p = positions[i];
     const { m, isSent, showLabel, color, label, textColor, y } = p;
 
