@@ -95,6 +95,8 @@ Add `"format": "chat"` to render the dialogue as iPhone Messages bubbles with vo
 - Below the header is a **scrolling message area**. Each dialogue line is one chat message; messages appear one by one in sync with the voiceover.
 - When the conversation overflows the message area, it **auto-scrolls**: the newest message stays pinned to the bottom while older bubbles slide up and are clipped at the header divider (smooth ~350ms ease-out). The header and panel never scroll.
 - The first speaker is auto-assigned to the right (blue, "sent"), the second to the left (gray, "received").
+- Long messages **wrap automatically** to multiple lines inside the bubble — text never spills past the bubble or panel edge. Wrapping is measured against the real rendered font width, and an over-long single word is hard-broken so it still fits.
+- The header **contact name** comes from a participant `label`. If you don't pass `chatConfig.participants` (or only auto-default it), the header shows a generic **"Contact"** rather than a bare speaker id like "A"/"B".
 - The overlay is rendered as a per-frame PNG sequence and composited in a single FFmpeg pass, so the scroll animates smoothly.
 
 **Optional — customise participant appearance:**
@@ -124,7 +126,8 @@ Add `"format": "chat"` to render the dialogue as iPhone Messages bubbles with vo
 **Chat layout notes:**
 - The panel is a fixed centered rectangle (~90% canvas width, ~42% canvas height, positioned in the upper-middle). Its size and position never change for the whole video.
 - The message area is a fixed-height viewport below the header. Long conversations auto-scroll within it (newest pinned to the bottom, oldest clipped at the top) — they never overflow the panel or bleed onto the background video.
-- 1:1 conversation style: no per-bubble sender name labels (the contact name shows once, in the header).
+- 1:1 conversation style: no per-bubble sender name labels (the contact name shows once, in the header; defaults to "Contact" when not configured).
+- Bubbles size to their text and word-wrap at the panel width; long messages become multi-line instead of overflowing.
 - Dark-mode colors: black `#000000` panel, `#0A84FF` sent bubbles, `#262629` received bubbles, white text, `#007AFF` header controls.
 - The `color` field in `chatConfig.participants` is currently informational — bubble fills come from `align` (right = sent/blue, left = received/gray).
 
