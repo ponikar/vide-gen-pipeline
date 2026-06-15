@@ -51,42 +51,93 @@ const FS = 20; // message font size
 const FW_WEIGHT = 600; // semibold message text
 const LH = 24; // tight line-height for wrapped lines
 const ASCENT = 15; // first-line baseline offset from bubble top padding
-const CW9 = 11; // approx glyph advance at FS=20 (semibold)
-const MBW = 543; // max text width -> bubble caps at ~81% of canvas
+const MBW = 543; // max text width (px) inside a bubble; lines wrap before exceeding this
 const SIDE_MARGIN = 12; // bubbles sit close to the canvas edges
 
 // Scroll animation
 const FPS = 30;
 const ANIM_SECONDS = 0.35;
 
+const FONT_FAMILY = "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif";
+
 function esc(v: string): string {
   return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 
-function wrap(text: string, maxChars: number): string[] {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let cur: string[] = [];
-  for (const w of words) {
-    const test = [...cur, w].join(" ");
-    if (test.length > maxChars && cur.length > 0) {
-      lines.push(cur.join(" "));
-      cur = [w];
+// Measure the real rendered width (px) of one line at the bubble text style.
+// Runtime measurement keeps word-wrap correct regardless of which font the host
+// resolves for the font stack — a hardcoded per-char width can't.
+const widthCache = new Map<string, number>();
+async function textWidth(text: string): Promise<number> {
+  if (text.length === 0) return 0;
+  const cached = widthCache.get(text);
+  if (cached !== undefined) return cached;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="120"><text x="0" y="80" font-size="${FS}" font-weight="${FW_WEIGHT}" fill="#fff" font-family="${FONT_FAMILY}">${esc(text)}</text></svg>`;
+  let width: number;
+  try {
+    const out = await sharp(Buffer.from(svg)).trim({ threshold: 10 }).toBuffer({ resolveWithObject: true });
+    width = out.info.width;
+  } catch {
+    width = Math.ceil(text.length * FS * 0.6); // only hit for ink-less input
+  }
+  widthCache.set(text, width);
+  return width;
+}
+
+// Break a single word that is itself wider than maxW into character chunks.
+async function hardBreakWord(word: string, maxW: number): Promise<string[]> {
+  const pieces: string[] = [];
+  let cur = "";
+  for (const ch of word) {
+    const next = cur + ch;
+    if (cur !== "" && (await textWidth(next)) > maxW) {
+      pieces.push(cur);
+      cur = ch;
     } else {
-      cur = [...cur, w];
+      cur = next;
     }
   }
-  if (cur.length > 0) lines.push(cur.join(" "));
-  return lines;
+  if (cur !== "") pieces.push(cur);
+  return pieces;
+}
+
+// Word-wrap by measured pixel width so no line exceeds maxW.
+async function wrapToWidth(text: string, maxW: number): Promise<string[]> {
+  const words = text.split(/\s+/).filter((w) => w.length > 0);
+  const lines: string[] = [];
+  let cur = "";
+
+  for (const word of words) {
+    const candidate = cur === "" ? word : `${cur} ${word}`;
+    if ((await textWidth(candidate)) <= maxW) {
+      cur = candidate;
+      continue;
+    }
+    if (cur !== "") {
+      lines.push(cur);
+      cur = "";
+    }
+    if ((await textWidth(word)) <= maxW) {
+      cur = word;
+    } else {
+      const pieces = await hardBreakWord(word, maxW);
+      for (let i = 0; i < pieces.length - 1; i++) lines.push(pieces[i]);
+      cur = pieces[pieces.length - 1] ?? "";
+    }
+  }
+  if (cur !== "") lines.push(cur);
+  return lines.length > 0 ? lines : [""];
 }
 
 type M = { lines: string[]; width: number; height: number };
 
-function measure(text: string): M {
-  const maxC = Math.floor(MBW / CW9);
-  const lines = wrap(text, maxC);
-  const maxLen = Math.max(...lines.map((l) => l.length));
-  const width = Math.min(maxLen * CW9 + PL + PR, MBW + PL + PR);
+// Wrap first, then size the bubble to the widest resulting line (never past MBW).
+async function measure(text: string): Promise<M> {
+  const lines = await wrapToWidth(text, MBW);
+  const widths = await Promise.all(lines.map((l) => textWidth(l)));
+  const longest = Math.max(0, ...widths);
+  const width = Math.min(longest, MBW) + PL + PR;
   const height = lines.length * LH + PT + PB;
   return { lines, width, height };
 }
@@ -108,13 +159,14 @@ type Row = {
 // Stack every message top-to-bottom in the virtual column. Positions are final
 // and absolute — scrolling is achieved purely by translating the group, never
 // by recomputing these.
-function computeVirtualLayout(messages: CM[]): Row[] {
+async function computeVirtualLayout(messages: CM[]): Promise<Row[]> {
+  const measured = await Promise.all(messages.map((msg) => measure(msg.text)));
   const rows: Row[] = [];
   let cur = MSG_TOP_PAD;
 
-  for (const msg of messages) {
-    const m = measure(msg.text);
-    const isSent = msg.participant.align === "right";
+  for (let i = 0; i < messages.length; i++) {
+    const m = measured[i];
+    const isSent = messages[i].participant.align === "right";
     const bubbleY = cur;
     const height = m.height + BM;
 
@@ -306,8 +358,11 @@ function deriveContact(chatConfig: ChatConfig): { name: string; initial: string 
   const entries = Object.values(participants);
   const received = entries.find((p) => p.align === "left");
   const chosen = received ?? entries[0];
-  const name = chosen?.label?.trim() || "Messages";
-  const initial = (name[0] ?? "?").toUpperCase();
+  const label = chosen?.label?.trim() ?? "";
+  // A bare single-letter label is the auto-default speaker id (e.g. "A"/"B"),
+  // not a real name — fall back to a generic placeholder.
+  const name = label.length >= 2 ? label : "Contact";
+  const initial = (name[0] ?? "C").toUpperCase();
   return { name, initial };
 }
 
@@ -345,7 +400,7 @@ export async function renderChatFrames(
     participant: participants[c.speaker] ?? { label: c.speaker, color: "#007AFF", align: "right" },
   }));
 
-  const rows = computeVirtualLayout(messages);
+  const rows = await computeVirtualLayout(messages);
   const appearTimes = captions.map((c) => c.startSeconds);
   const totalDuration = captions.length > 0 ? captions[captions.length - 1].endSeconds : 0;
   const { name, initial } = deriveContact(chatConfig);

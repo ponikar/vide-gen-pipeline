@@ -456,3 +456,43 @@ all four sides instead of a full-width bottom-anchored bar.
   gameplay visible above/below/left/right, the full status bar + video button, larger/bolder
   pill bubbles with no "Delivered" and no per-bubble name labels, and correct auto-scroll
   (newest pinned to bottom, older clipped at the divider, header fixed).
+
+## 2026-06-15T20:35:00.000Z - Chat overlay: contact-name default + measured word-wrap
+
+**Why**
+Two chat-overlay bugs: (1) when `chatConfig.participants` is omitted, config auto-defaults
+each participant's `label` to the raw speaker id ("A"/"B"), so the header showed a bare
+single letter as the contact name and avatar initial. (2) Long single-line messages
+overflowed the bubble/panel and were clipped mid-word — `measure()` wrapped by character
+count (`floor(MBW/CW9)`) and sized the bubble from `chars * CW9`, so lines of wide glyphs
+exceeded `MBW` in real pixels while passing the char check. A fixed per-char width also
+can't be trusted because the host font for the `-apple-system,...,sans-serif` stack differs
+between environments (measured ~8.5-9.7 px/char for normal text vs ~17.7 for wide glyphs).
+
+**Changes** (all in `src/chat.ts`)
+- `deriveContact`: fall back to "Contact" (initial "C") when the chosen participant label is
+  shorter than 2 chars, so a bare single-letter speaker id is never shown as the name.
+- Replaced char-count wrapping with runtime pixel measurement:
+  - `textWidth()` renders the line at the bubble text style and reads the trimmed ink width
+    via sharp (cached). Self-calibrates to whatever font the host resolves.
+  - `wrapToWidth()` greedily word-wraps so no line exceeds `MBW` px; `hardBreakWord()`
+    character-breaks a single word wider than `MBW`.
+  - `measure()` is now async: wrap first, then size the bubble to the widest resulting line
+    (`min(longest, MBW) + padding`), height from the resulting line count.
+  - `computeVirtualLayout()` is now async (`await Promise.all(measure)`); `renderChatFrames`
+    awaits it. Removed the unused `CW9` constant.
+
+**Files Modified**
+- `src/chat.ts`
+- `codemap.md` (this entry)
+
+**Result**
+- `npm run typecheck` passes; `npx vitest run` 16/17 (pre-existing Windows path test only).
+- Harness (no TTS) confirmed: default-label participants show "Contact"/"C"; long phrases
+  ("she found someone who actually texts back within a reasonable amount of time", a caps-
+  heavy line, and a 60-char unbreakable word) all wrap inside the bubble — the long word is
+  hard-broken across two lines.
+- Full `npm run generate -- input.json` over a Minecraft clip: 720x1280 H.264/AAC, 44s. The
+  long message "honestly getting people to actually discover your product is the single
+  hardest part of this entire journey" wraps to 3 lines fully inside the received bubble,
+  within the panel, no clipping.
