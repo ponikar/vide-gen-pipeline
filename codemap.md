@@ -1,4 +1,41 @@
 
+## 2026-06-17T21:15:00.000Z — Agent token authorization system
+
+**Why**
+AI agents need authenticated access to Gold Fish APIs (post content, read analytics) scoped to specific apps and social accounts. Previously there was no API key concept — only Clerk session auth for the dashboard.
+
+**Changes**
+- Extended `apps/web/src/db/schema.ts` — added `api_keys` table (SHA-256 hashed tokens, app-scoped) and mirrored `connected_accounts` with `appId` FK column
+- Migration `0001_premium_liz_osborn.sql` — creates api_keys table, adds appId column + FK to connected_accounts
+- `apps/web/src/lib/crypto.ts` — `generateApiKey()` (36 random bytes → base64url → `gf_` prefix), `sha256()` (Web Crypto API)
+- `apps/web/src/lib/api-key-auth.ts` — Bearer token validation middleware: extracts prefix, DB lookup by prefix, SHA-256 verify, checks revoked, updates lastUsedAt
+- `apps/web/src/server/api/routers/apiKey.ts` — tRPC router: create (shows key once), list, revoke, delete (all protectedProcedure)
+- `apps/web/src/server/api/root.ts` — wired apiKey router
+- `apps/web/src/app/api/v1/posts/route.ts` — POST endpoint for agents (API key auth → find connected account → Instagram createMedia + poll + publish → record in posts table)
+- `apps/web/src/app/api/v1/analytics/route.ts` — GET endpoint for agents (API key auth → account-level or media-level insights from Instagram)
+- `apps/web/src/app/dashboard/[appId]/page.tsx` — added ApiKeysSection component with create form, one-time key display with copy, list with revoke
+
+**Files Modified**
+- apps/web/src/db/schema.ts
+- apps/web/src/server/api/root.ts
+- apps/web/src/app/dashboard/[appId]/page.tsx
+
+**Files Created**
+- apps/web/src/db/migrations/0001_premium_liz_osborn.sql
+- apps/web/src/lib/crypto.ts
+- apps/web/src/lib/api-key-auth.ts
+- apps/web/src/server/api/routers/apiKey.ts
+- apps/web/src/app/api/v1/posts/route.ts
+- apps/web/src/app/api/v1/analytics/route.ts
+
+**CLI code untouched: src/, api/, scripts/ — no changes**
+
+**Verification**
+- npm run typecheck (web app) — 0 errors
+- npm run dev (web app) — starts on :3000
+- npx tsx src/cli.ts --help — CLI works
+- Migration applied (api_keys table + connected_accounts.app_id column)
+
 ## 2026-06-09T10:52:11.333Z - Add codemap update hook
 
 **Why**
