@@ -8,6 +8,13 @@
       "when": 1781710129970,
       "tag": "0000_lucky_the_leader",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781712031256,
+      "tag": "0001_premium_liz_osborn",
+      "breakpoints": true
     }
   ]
 }
