@@ -17,6 +17,67 @@ Added an npm codemap hook script that appends structured entries to codemap.md, 
 **Result**
 Hook was run once for this iteration and created the codemap entry.
 
+## 2026-06-17T21:01:00.000Z - v0 initialization: monorepo + T3 web app scaffold
+
+**Why**
+Gold Fish needed a web app (T3 stack: Next.js + tRPC + Drizzle + Clerk + Tailwind v4) on top of the existing video pipeline CLI. The existing code was a Vercel serverless + CLI project with no frontend.
+
+**Changes**
+- Created `v0` branch and git worktree at `../gold-fish-v0`
+- Converted root to npm workspaces monorepo (single `"workspaces": ["apps/*"]` addition)
+- Created `apps/web/` — full T3-stack Next.js 15 app with App Router
+- Database: added `apps` and `posts` tables to Neon via Drizzle migration (coexists with existing `connected_accounts`)
+- tRPC v11: server with `publicProcedure` and `protectedProcedure` (Clerk auth), routers for `app` (CRUD) and `post` (CRUD)
+- Clerk auth: middleware protecting `/dashboard/*`, `UserButton` in layout
+- Pages: landing (redirects to sign-in), sign-in/sign-up (Clerk hosted), dashboard (apps list + create + detail with posts)
+- Tailwind v4 with CSS variables for shadcn/ui compatibility
+
+**Files Modified (root)**
+- `package.json` — added `"workspaces": ["apps/*"]`
+
+**Files Created (apps/web/)**
+- `package.json` — workspace deps (next, trpc, clerk, tailwind, drizzle, shadcn utilities)
+- `next.config.ts`, `tsconfig.json`, `postcss.config.mjs`, `components.json`, `drizzle.config.ts`, `.env`
+- `src/styles/globals.css` — Tailwind v4 + shadcn CSS variables
+- `src/lib/utils.ts` — `cn()` helper
+- `src/db/schema.ts` — `apps` + `posts` tables
+- `src/db/index.ts` — Neon Drizzle connection
+- `src/db/migrations/0000_lucky_the_leader.sql` — auto-generated migration
+- `src/middleware.ts` — Clerk route protection
+- `src/server/trpc.ts` — tRPC init, context, protectedProcedure
+- `src/server/api/root.ts` — merged router
+- `src/server/api/routers/apps.ts` — CRUD app router
+- `src/server/api/routers/posts.ts` — CRUD post router
+- `src/server/index.ts` — barrel exports
+- `src/trpc/react.tsx` — TRPCReactProvider + api hook
+- `src/trpc/server.ts` — server-side caller
+- `src/app/layout.tsx` — Clerk + TRPC providers
+- `src/app/page.tsx` — auth redirect
+- `src/app/sign-in/[[...sign-in]]/page.tsx`
+- `src/app/sign-up/[[...sign-up]]/page.tsx`
+- `src/app/api/trpc/[trpc]/route.ts` — tRPC HTTP handler
+- `src/app/dashboard/layout.tsx` — sidebar + header
+- `src/app/dashboard/page.tsx` — apps list (loading/empty/data)
+- `src/app/dashboard/new/page.tsx` — create app form
+- `src/app/dashboard/[appId]/page.tsx` — app detail + posts (loading/empty/data/error)
+- `src/app/dashboard/[appId]/posts/new/page.tsx` — create post form
+
+**CLI code untouched** ✅
+- `src/` (all .ts files), `api/`, `scripts/`, `tsconfig.json`, `drizzle.config.ts` — zero modifications
+
+**Verification**
+- `npx tsx src/cli.ts --help` — works
+- `npm test` — 17/17 pass
+- `npm run typecheck -w apps/web` — 0 errors
+- `npm run dev -w apps/web` — Next.js starts on :3000
+- `drizzle-kit migrate` — migration applied successfully
+
+**Next steps for the user**
+1. Create a Clerk app at https://dashboard.clerk.com
+2. Copy `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` into `apps/web/.env`
+3. Run `npm run dev -w apps/web` to start the app
+4. Sign up, create apps, add posts
+
 ## 2026-06-09T10:55:00.000Z - Replace codemap script with implicit workflow
 
 **Why**

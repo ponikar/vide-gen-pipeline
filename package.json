@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "workspaces": ["apps/*"],
   "scripts": {
     "generate": "tsx src/cli.ts",
     "connect": "tsx scripts/connect.ts",
