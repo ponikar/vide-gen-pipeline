@@ -3,7 +3,7 @@ import { router, protectedProcedure } from "@/server/trpc";
 import { apps } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { generateObject } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { getScrapeModel } from "@/lib/ai-model";
 
 export const appRouter = router({
   create: protectedProcedure
@@ -78,7 +78,7 @@ export const appRouter = router({
         .slice(0, 8000);
 
       const { object } = await generateObject({
-        model: openai("gpt-4o-mini"),
+        model: getScrapeModel(),
         schema: z.object({
           name: z.string(),
           description: z.string(),
