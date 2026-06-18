@@ -1,7 +1,8 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
+import { env } from "@/env";
 
-const connection = neon(process.env.POSTGRES_URL!);
+const connection = neon(env.POSTGRES_URL);
 export const db = drizzle(connection, { schema });
 export { schema };
