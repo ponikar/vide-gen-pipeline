@@ -26,7 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               My Apps
             </Link>
             <Link
-              href="/dashboard/new"
+              href="/dashboard/onboard"
               className="rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
             >
               New App

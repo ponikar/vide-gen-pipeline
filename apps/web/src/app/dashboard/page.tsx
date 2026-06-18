@@ -23,7 +23,7 @@ export default function DashboardPage() {
         <p className="mb-2 text-lg font-medium">No apps yet</p>
         <p className="mb-6 text-sm text-muted-foreground">Create your first app to get started.</p>
         <Link
-          href="/dashboard/new"
+          href="/dashboard/onboard"
           className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
@@ -38,7 +38,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">My Apps</h1>
         <Link
-          href="/dashboard/new"
+          href="/dashboard/onboard"
           className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
