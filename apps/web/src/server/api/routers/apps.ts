@@ -2,6 +2,8 @@ import { z } from "zod";
 import { router, protectedProcedure } from "@/server/trpc";
 import { apps } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { generateObject } from "ai";
+import { openai } from "@ai-sdk/openai";
 
 export const appRouter = router({
   create: protectedProcedure
@@ -57,5 +59,35 @@ export const appRouter = router({
         .where(and(eq(apps.id, input.id), eq(apps.clerkUserId, ctx.clerkUserId)))
         .returning();
       return app;
+    }),
+
+  scrapeUrl: protectedProcedure
+    .input(z.object({ url: z.string().url() }))
+    .mutation(async ({ input }) => {
+      const response = await fetch(input.url, {
+        headers: { "User-Agent": "GoldFish/1.0 (AI scraper)" },
+      });
+      const html = await response.text();
+
+      const text = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 8000);
+
+      const { object } = await generateObject({
+        model: openai("gpt-4o-mini"),
+        schema: z.object({
+          name: z.string(),
+          description: z.string(),
+        }),
+        prompt: `Extract the app/product name and a short description (max 200 chars) from this website content. Return the name and description.
+
+${text}`,
+      });
+
+      return object;
     }),
 });
