@@ -5,7 +5,6 @@ import { eq, and } from "drizzle-orm";
 import { InstagramProvider } from "@/lib/instagram";
 
 const provider = new InstagramProvider();
-const POLL_TIMEOUT_MS = 10000;
 
 export async function POST(request: Request) {
   const auth = await authenticateApiKey(request);
@@ -69,40 +68,11 @@ export async function POST(request: Request) {
     }
   }
 
-  const accountId = account.providerUserId;
-
-  const { containerId } = await provider.createMedia(
+  const result = await provider.postReel(
     accessToken,
-    accountId,
+    account.providerUserId,
     videoUrl,
     caption,
-  );
-
-  const start = Date.now();
-  let finished = false;
-  while (Date.now() - start < POLL_TIMEOUT_MS) {
-    const status = await provider.getMediaStatus(accessToken, containerId);
-    if (status.status === "FINISHED") {
-      finished = true;
-      break;
-    }
-    if (status.status === "ERROR") {
-      return Response.json(
-        { containerId, error: status.errorMessage ?? "Media processing failed" },
-        { status: 502 },
-      );
-    }
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-
-  if (!finished) {
-    return Response.json({ containerId }, { status: 202 });
-  }
-
-  const published = await provider.publishMedia(
-    accessToken,
-    accountId,
-    containerId,
   );
 
   const [post] = await db
@@ -110,19 +80,19 @@ export async function POST(request: Request) {
     .values({
       appId: auth.appId,
       title: caption ? caption.slice(0, 200) : "Posted via Gold Fish agent",
-      link: published.permalink ?? null,
+      link: result.permalink ?? null,
       stats: {
         provider: providerName,
-        providerMediaId: published.id,
-        providerAccountId: accountId,
+        providerMediaId: result.igMediaId,
+        providerAccountId: account.providerUserId,
       },
     })
     .returning();
 
   return Response.json({
     id: post.id,
-    permalink: published.permalink,
-    providerMediaId: published.id,
-    containerId,
+    permalink: result.permalink,
+    providerMediaId: result.igMediaId,
+    containerId: result.containerId,
   });
 }

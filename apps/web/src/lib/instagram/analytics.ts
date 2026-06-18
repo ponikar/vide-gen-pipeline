@@ -13,7 +13,7 @@ export type RecentMedia = {
 export async function getMediaInsights(
   client: InstagramClient,
   mediaId: string,
-  metrics: string[] = ["reach", "saved", "likes", "comments", "shares", "plays"],
+  metrics: string[] = ["reach", "views", "saved", "shares", "comments", "likes"],
 ): Promise<Insight[]> {
   const data = await client.get<{
     data: Array<{ name: string; values: Array<{ value: number }> }>;
