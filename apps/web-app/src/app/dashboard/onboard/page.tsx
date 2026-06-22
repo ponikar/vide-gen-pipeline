@@ -51,7 +51,6 @@ export default function OnboardPage() {
   const createApp = api.app.create.useMutation({
     onSuccess: (app) => {
       utils.app.list.invalidate();
-      setStep("DONE");
       addBotMessage("Your app has been created! Redirecting...");
       setTimeout(() => router.push(`/dashboard/${app.id}`), 1500);
     },
@@ -95,7 +94,6 @@ export default function OnboardPage() {
           advanceTo("ASKING_NAME");
           return;
         }
-        // treat as URL
         advanceTo("SCRAPING");
         scrapeAi.mutate(
           { url: trimmed.startsWith("http") ? trimmed : `https://${trimmed}` },
@@ -223,6 +221,7 @@ export default function OnboardPage() {
             </div>
           </div>
         )}
+
         <div ref={endRef} />
       </div>
 

@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "workspaces": ["apps/*"],
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "generate": "tsx src/cli.ts",
     "connect": "tsx scripts/connect.ts",
@@ -19,7 +21,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "dev:video": "pnpm --filter @gold-fish/video-server dev",
+    "dev:next": "pnpm --filter @gold-fish/web dev"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

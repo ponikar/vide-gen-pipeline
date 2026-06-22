@@ -1,10 +1,12 @@
-import { pgTable, text, uuid, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
 
 export const apps = pgTable("apps", {
   id: uuid("id").defaultRandom().primaryKey(),
   clerkUserId: text("clerk_user_id").notNull(),
   name: text("name").notNull(),
   description: text("description"),
+  fineTuned: boolean("fine_tuned").default(false).notNull(),
+  fineTunePreference: jsonb("fine_tune_preference").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdate(() => new Date()),
 });
@@ -28,6 +30,19 @@ export const apiKeys = pgTable("api_keys", {
   appId: uuid("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdate(() => new Date()),
+});
+
+export const videoJobs = pgTable("video_jobs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  appId: uuid("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("pending"),
+  generationParams: jsonb("generation_params").$type<Record<string, unknown>>(),
+  videoServerJobId: text("video_server_job_id"),
+  outputUrl: text("output_url"),
+  liked: boolean("liked"),
+  error: text("error"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdate(() => new Date()),
 });

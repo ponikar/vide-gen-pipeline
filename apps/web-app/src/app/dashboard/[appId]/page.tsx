@@ -2,9 +2,9 @@
 
 import { api } from "@/trpc/react";
 import { useParams, useRouter } from "next/navigation";
-import { Plus, Trash2, ArrowLeft, Key, Copy, Check, X, Unlink } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Key, Copy, Check, X, Unlink, Loader2, Sparkles, ThumbsUp } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 function ConnectedAccountsSection({ appId }: { appId: string }) {
   const utils = api.useUtils();
@@ -94,6 +94,242 @@ function ConnectedAccountsSection({ appId }: { appId: string }) {
               </Link>
             )}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type VideoJob = {
+  dbId: string;
+  videoServerJobId: string;
+  status: string;
+  outputUrl: string | null;
+  liked: boolean | null;
+};
+
+function VideoSkeleton({ index }: { index: number }) {
+  return (
+    <div className="rounded-lg border p-4">
+      <p className="mb-2 text-center text-xs text-muted-foreground">Video {index + 1}</p>
+      <div className="aspect-[9/16] animate-pulse rounded-md bg-muted" />
+      <div className="mt-2 flex items-center justify-center gap-2">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">Generating...</span>
+      </div>
+    </div>
+  );
+}
+
+function VideoFineTuneSection({ appId }: { appId: string }) {
+  const router = useRouter();
+  const utils = api.useUtils();
+
+  const { data: app } = api.app.getById.useQuery({ id: appId });
+  const { data: existingJobs } = api.videoGeneration.list.useQuery({ appId });
+
+  const generateVideos = api.videoGeneration.generate.useMutation();
+  const jobStatus = api.videoGeneration.getStatus.useMutation();
+  const setPref = api.videoGeneration.setPreference.useMutation();
+  const retryVideo = api.videoGeneration.retry.useMutation();
+  const saveFineTune = api.videoGeneration.saveFineTune.useMutation({
+    onSuccess: () => {
+      utils.app.getById.invalidate({ id: appId });
+    },
+  });
+
+  const [started, setStarted] = useState(false);
+  const [videos, setVideos] = useState<VideoJob[]>([]);
+
+  useEffect(() => {
+    if (existingJobs && existingJobs.length > 0) {
+      setStarted(true);
+      setVideos(
+        existingJobs.map((j) => ({
+          dbId: j.id,
+          videoServerJobId: j.videoServerJobId ?? "",
+          status: j.status,
+          outputUrl: j.outputUrl,
+          liked: j.liked,
+        })),
+      );
+    }
+  }, [existingJobs]);
+
+  const pollJob = useCallback(
+    (dbId: string) => {
+      jobStatus.mutate(
+        { id: dbId },
+        {
+          onSuccess: (updated) => {
+            setVideos((prev) =>
+              prev.map((v) =>
+                v.dbId === dbId
+                  ? { ...v, status: updated.status, outputUrl: updated.outputUrl ?? null }
+                  : v,
+              ),
+            );
+            if (updated.status !== "done" && updated.status !== "failed") {
+              setTimeout(() => pollJob(dbId), 2000);
+            }
+          },
+          onError: () => {
+            setTimeout(() => pollJob(dbId), 2000);
+          },
+        },
+      );
+    },
+    [jobStatus],
+  );
+
+  function handleStart() {
+    setStarted(true);
+    generateVideos.mutate(
+      { appId },
+      {
+        onSuccess: (jobs) => {
+          setVideos(
+            jobs.map((j) => ({
+              dbId: j.dbId,
+              videoServerJobId: j.videoServerJobId,
+              status: "pending",
+              outputUrl: null,
+              liked: null,
+            })),
+          );
+          jobs.forEach((j) => setTimeout(() => pollJob(j.dbId), 2000));
+        },
+        onError: () => {
+          setVideos([]);
+          setStarted(false);
+        },
+      },
+    );
+  }
+
+  function handlePick(dbId: string, current: boolean | null) {
+    const next = !current;
+    setPref.mutate({ id: dbId, liked: next });
+    setVideos((prev) =>
+      prev.map((v) => (v.dbId === dbId ? { ...v, liked: next } : v)),
+    );
+  }
+
+  function handleSave() {
+    saveFineTune.mutate({ appId });
+  }
+
+  if (app?.fineTuned) return null;
+
+  const someDone = videos.some((v) => v.status === "done");
+  const hasPick = videos.some((v) => v.liked === true);
+  const canSave = someDone && hasPick;
+
+  return (
+    <div className="space-y-4 rounded-lg border border-primary/20 bg-primary/5 p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <div>
+            <p className="text-sm font-medium">Fine-tune your content</p>
+            <p className="text-xs text-muted-foreground">
+              Generate sample videos to teach the AI your style.
+            </p>
+          </div>
+        </div>
+        {!started && (
+          <button
+            onClick={handleStart}
+            disabled={generateVideos.isPending}
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {generateVideos.isPending ? "Starting..." : "Start Fine-Tune"}
+          </button>
+        )}
+      </div>
+
+      {(started || existingJobs && existingJobs.length > 0) && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {videos.length === 0
+            ? Array.from({ length: 3 }).map((_, i) => <VideoSkeleton key={i} index={i} />)
+            : videos.map((job, i) => (
+                <div
+                  key={job.dbId}
+                  className={`rounded-lg border p-4 text-center ${
+                    job.liked === true ? "border-primary ring-2 ring-primary/30" : ""
+                  } ${job.status === "failed" ? "border-destructive/50 bg-destructive/5" : ""}`}
+                >
+                  <p className="mb-2 text-xs text-muted-foreground">Video {i + 1}</p>
+                  {job.status === "pending" || job.status === "running" ? (
+                    <div className="aspect-[9/16] animate-pulse rounded-md bg-muted" />
+                  ) : job.status === "done" && job.outputUrl ? (
+                    <video src={job.outputUrl} controls className="aspect-[9/16] w-full rounded-md object-cover" />
+                  ) : job.status === "failed" ? (
+                    <div className="flex flex-col aspect-[9/16] items-center justify-center gap-2 rounded-md bg-muted">
+                      <p className="text-xs text-destructive">Failed</p>
+                      <button
+                        onClick={() => {
+                          retryVideo.mutate(
+                            { id: job.dbId },
+                            {
+                              onSuccess: (data) => {
+                                setVideos((prev) =>
+                                  prev.map((v) =>
+                                    v.dbId === job.dbId
+                                      ? { ...v, status: "pending" as const, videoServerJobId: data.videoServerJobId!, outputUrl: null, liked: null }
+                                      : v,
+                                  ),
+                                );
+                                setTimeout(() => pollJob(job.dbId), 2000);
+                              },
+                            },
+                          );
+                        }}
+                        disabled={retryVideo.isPending}
+                        className="rounded-md border px-2 py-1 text-xs hover:bg-accent disabled:opacity-50"
+                      >
+                        {retryVideo.isPending ? "Retrying..." : "Retry"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="aspect-[9/16] animate-pulse rounded-md bg-muted" />
+                  )}
+                  {job.status === "done" && job.outputUrl && (
+                    <button
+                      onClick={() => handlePick(job.dbId, job.liked)}
+                      className={`mt-2 inline-flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium ${
+                        job.liked === true
+                          ? "bg-primary text-primary-foreground"
+                          : "border hover:bg-accent"
+                      }`}
+                    >
+                      <ThumbsUp className="h-3 w-3" />
+                      {job.liked === true ? "Selected" : "Select"}
+                    </button>
+                  )}
+                  {(job.status === "pending" || job.status === "running") && (
+                    <div className="mt-2 flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">{job.status}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+        </div>
+      )}
+
+      {someDone && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-muted-foreground">
+            {hasPick ? "" : "Select at least one video to save your preference."}
+          </p>
+          <button
+            onClick={handleSave}
+            disabled={!canSave || saveFineTune.isPending}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {saveFineTune.isPending ? "Saving..." : "Save"}
+          </button>
         </div>
       )}
     </div>
@@ -303,6 +539,8 @@ export default function AppDetailPage() {
           </button>
         </div>
       </div>
+
+      <VideoFineTuneSection appId={appId} />
 
       <hr className="border-t" />
 
