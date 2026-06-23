@@ -32,6 +32,7 @@ export const posts = pgTable("posts", {
 		.references(() => apps.id, { onDelete: "cascade" }),
 	title: text("title").notNull(),
 	link: text("link"),
+	description: text("description"),
 	stats: jsonb("stats").$type<Record<string, unknown>>().default({}),
 	createdAt: timestamp("created_at", { withTimezone: true })
 		.defaultNow()

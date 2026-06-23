@@ -41,7 +41,7 @@ export async function runPipeline(
 		if (!app) throw new Error("App not found");
 
 		const posts = await db`
-      SELECT title, link, stats, created_at 
+      SELECT title, link, stats, description, created_at 
       FROM posts WHERE app_id = ${appId} 
       ORDER BY created_at DESC LIMIT 5
     `;
@@ -52,7 +52,7 @@ export async function runPipeline(
 				: posts
 						.map(
 							(p: Record<string, unknown>) =>
-								`- ${p.title}: stats=${JSON.stringify(p.stats)}`,
+								`- ${p.title}: stats=${JSON.stringify(p.stats)}${p.description ? `\n  description: ${p.description}` : ""}`,
 						)
 						.join("\n");
 
@@ -145,7 +145,7 @@ export async function runPipeline(
 		await db`
       INSERT INTO video_jobs (id, app_id, cron_schedule_id, status, current_phase, generation_params, output_url)
       VALUES (${jobId}, ${appId}, ${scheduleId}, 'running', 'publishing', 
-              ${JSON.stringify({ dialogue, research: researchResult.analysis, captions: captionResult })}, 
+              ${JSON.stringify({ dialogue, research: researchResult.analysis, captions: captionResult, videoDescription: scriptResult.videoDescription })}, 
               ${outputUrl})
     `;
 
@@ -199,9 +199,9 @@ export async function runPipeline(
 						: (result as { permalink?: string }).permalink;
 
 				await db`
-          INSERT INTO posts (app_id, title, link, caption, platform, platform_post_id, status, published_at, meta, video_job_id, type)
+          INSERT INTO posts (app_id, title, link, description, caption, platform, platform_post_id, status, published_at, meta, video_job_id, type)
           VALUES (${appId}, ${(result as { igMediaId?: string }).igMediaId ?? (result as { publishId?: string }).publishId ?? "posted"}, 
-                  ${link ?? null}, ${platform === "instagram" ? captionResult.instagram : captionResult.tiktok}, 
+                  ${link ?? null}, ${scriptResult.videoDescription}, ${platform === "instagram" ? captionResult.instagram : captionResult.tiktok}, 
                   ${platform}, ${(result as { igMediaId?: string }).igMediaId ?? (result as { publishId?: string }).publishId ?? ""}, 
                   'published', ${new Date().toISOString()}, 
                   ${JSON.stringify({})}, ${jobId}, 'generated')
