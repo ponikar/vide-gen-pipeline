@@ -1,0 +1,2 @@
+ALTER TABLE "video_jobs" ADD COLUMN "cron_schedule_id" uuid;--> statement-breakpoint
+ALTER TABLE "video_jobs" ADD CONSTRAINT "video_jobs_cron_schedule_id_cron_schedules_id_fk" FOREIGN KEY ("cron_schedule_id") REFERENCES "public"."cron_schedules"("id") ON DELETE set null ON UPDATE no action;

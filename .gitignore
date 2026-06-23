@@ -15,3 +15,5 @@ voices/*.wav
 .env
 .next/
 *.tsbuildinfo
+.gstack/browse-network.log
+sadtalker/

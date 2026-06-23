@@ -1,14 +1,24 @@
-export { InstagramClient } from './client.js';
-export { getAuthUrl, exchangeCode, getLongLivedToken, refreshToken, getProfile } from './auth.js';
-export { postReel } from './post.js';
-export { getMediaInsights, getAccountInsights, getRecentMedia } from './analytics.js';
+export {
+	getAccountInsights,
+	getMediaInsights,
+	getRecentMedia,
+} from "./analytics.js";
+export {
+	exchangeCode,
+	getAuthUrl,
+	getLongLivedToken,
+	getProfile,
+	refreshToken,
+} from "./auth.js";
+export { InstagramClient } from "./client.js";
+export { postReel } from "./post.js";
 export type {
-  EnvVars,
-  InstagramProfile,
-  ReelInput,
-  PostResult,
-  MediaStatus,
-  MediaContainer,
-  Insight,
-  RecentMedia,
-} from './types.js';
+	EnvVars,
+	Insight,
+	InstagramProfile,
+	MediaContainer,
+	MediaStatus,
+	PostResult,
+	RecentMedia,
+	ReelInput,
+} from "./types.js";

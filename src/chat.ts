@@ -1,8 +1,12 @@
 import { copyFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import type { ChatConfig, ParticipantStyle, GeneratedSegment } from "./types.js";
 import { buildTimedCaptions } from "./subtitles.js";
+import type {
+	ChatConfig,
+	GeneratedSegment,
+	ParticipantStyle,
+} from "./types.js";
 
 const FW = 720;
 const FH = 1280;
@@ -58,10 +62,16 @@ const SIDE_MARGIN = 12; // bubbles sit close to the canvas edges
 const FPS = 30;
 const ANIM_SECONDS = 0.35;
 
-const FONT_FAMILY = "-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif";
+const FONT_FAMILY =
+	"-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif";
 
 function esc(v: string): string {
-  return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+	return v
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&apos;");
 }
 
 // Measure the real rendered width (px) of one line at the bubble text style.
@@ -69,77 +79,79 @@ function esc(v: string): string {
 // resolves for the font stack — a hardcoded per-char width can't.
 const widthCache = new Map<string, number>();
 async function textWidth(text: string): Promise<number> {
-  if (text.length === 0) return 0;
-  const cached = widthCache.get(text);
-  if (cached !== undefined) return cached;
+	if (text.length === 0) return 0;
+	const cached = widthCache.get(text);
+	if (cached !== undefined) return cached;
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="120"><text x="0" y="80" font-size="${FS}" font-weight="${FW_WEIGHT}" fill="#fff" font-family="${FONT_FAMILY}">${esc(text)}</text></svg>`;
-  let width: number;
-  try {
-    const out = await sharp(Buffer.from(svg)).trim({ threshold: 10 }).toBuffer({ resolveWithObject: true });
-    width = out.info.width;
-  } catch {
-    width = Math.ceil(text.length * FS * 0.6); // only hit for ink-less input
-  }
-  widthCache.set(text, width);
-  return width;
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="120"><text x="0" y="80" font-size="${FS}" font-weight="${FW_WEIGHT}" fill="#fff" font-family="${FONT_FAMILY}">${esc(text)}</text></svg>`;
+	let width: number;
+	try {
+		const out = await sharp(Buffer.from(svg))
+			.trim({ threshold: 10 })
+			.toBuffer({ resolveWithObject: true });
+		width = out.info.width;
+	} catch {
+		width = Math.ceil(text.length * FS * 0.6); // only hit for ink-less input
+	}
+	widthCache.set(text, width);
+	return width;
 }
 
 // Break a single word that is itself wider than maxW into character chunks.
 async function hardBreakWord(word: string, maxW: number): Promise<string[]> {
-  const pieces: string[] = [];
-  let cur = "";
-  for (const ch of word) {
-    const next = cur + ch;
-    if (cur !== "" && (await textWidth(next)) > maxW) {
-      pieces.push(cur);
-      cur = ch;
-    } else {
-      cur = next;
-    }
-  }
-  if (cur !== "") pieces.push(cur);
-  return pieces;
+	const pieces: string[] = [];
+	let cur = "";
+	for (const ch of word) {
+		const next = cur + ch;
+		if (cur !== "" && (await textWidth(next)) > maxW) {
+			pieces.push(cur);
+			cur = ch;
+		} else {
+			cur = next;
+		}
+	}
+	if (cur !== "") pieces.push(cur);
+	return pieces;
 }
 
 // Word-wrap by measured pixel width so no line exceeds maxW.
 async function wrapToWidth(text: string, maxW: number): Promise<string[]> {
-  const words = text.split(/\s+/).filter((w) => w.length > 0);
-  const lines: string[] = [];
-  let cur = "";
+	const words = text.split(/\s+/).filter((w) => w.length > 0);
+	const lines: string[] = [];
+	let cur = "";
 
-  for (const word of words) {
-    const candidate = cur === "" ? word : `${cur} ${word}`;
-    if ((await textWidth(candidate)) <= maxW) {
-      cur = candidate;
-      continue;
-    }
-    if (cur !== "") {
-      lines.push(cur);
-      cur = "";
-    }
-    if ((await textWidth(word)) <= maxW) {
-      cur = word;
-    } else {
-      const pieces = await hardBreakWord(word, maxW);
-      for (let i = 0; i < pieces.length - 1; i++) lines.push(pieces[i]);
-      cur = pieces[pieces.length - 1] ?? "";
-    }
-  }
-  if (cur !== "") lines.push(cur);
-  return lines.length > 0 ? lines : [""];
+	for (const word of words) {
+		const candidate = cur === "" ? word : `${cur} ${word}`;
+		if ((await textWidth(candidate)) <= maxW) {
+			cur = candidate;
+			continue;
+		}
+		if (cur !== "") {
+			lines.push(cur);
+			cur = "";
+		}
+		if ((await textWidth(word)) <= maxW) {
+			cur = word;
+		} else {
+			const pieces = await hardBreakWord(word, maxW);
+			for (let i = 0; i < pieces.length - 1; i++) lines.push(pieces[i]);
+			cur = pieces[pieces.length - 1] ?? "";
+		}
+	}
+	if (cur !== "") lines.push(cur);
+	return lines.length > 0 ? lines : [""];
 }
 
 type M = { lines: string[]; width: number; height: number };
 
 // Wrap first, then size the bubble to the widest resulting line (never past MBW).
 async function measure(text: string): Promise<M> {
-  const lines = await wrapToWidth(text, MBW);
-  const widths = await Promise.all(lines.map((l) => textWidth(l)));
-  const longest = Math.max(0, ...widths);
-  const width = Math.min(longest, MBW) + PL + PR;
-  const height = lines.length * LH + PT + PB;
-  return { lines, width, height };
+	const lines = await wrapToWidth(text, MBW);
+	const widths = await Promise.all(lines.map((l) => textWidth(l)));
+	const longest = Math.max(0, ...widths);
+	const width = Math.min(longest, MBW) + PL + PR;
+	const height = lines.length * LH + PT + PB;
+	return { lines, width, height };
 }
 
 type CM = { speaker: string; text: string; participant: ParticipantStyle };
@@ -147,194 +159,214 @@ type CM = { speaker: string; text: string; participant: ParticipantStyle };
 // One row in the virtual column. yTop/bubbleY are virtual coordinates measured
 // from the top of an infinitely tall message column (y=0). They never change.
 type Row = {
-  yTop: number;
-  height: number;
-  bubbleY: number;
-  m: M;
-  isSent: boolean;
-  color: string;
-  textColor: string;
+	yTop: number;
+	height: number;
+	bubbleY: number;
+	m: M;
+	isSent: boolean;
+	color: string;
+	textColor: string;
 };
 
 // Stack every message top-to-bottom in the virtual column. Positions are final
 // and absolute — scrolling is achieved purely by translating the group, never
 // by recomputing these.
 async function computeVirtualLayout(messages: CM[]): Promise<Row[]> {
-  const measured = await Promise.all(messages.map((msg) => measure(msg.text)));
-  const rows: Row[] = [];
-  let cur = MSG_TOP_PAD;
+	const measured = await Promise.all(messages.map((msg) => measure(msg.text)));
+	const rows: Row[] = [];
+	let cur = MSG_TOP_PAD;
 
-  for (let i = 0; i < messages.length; i++) {
-    const m = measured[i];
-    const isSent = messages[i].participant.align === "right";
-    const bubbleY = cur;
-    const height = m.height + BM;
+	for (let i = 0; i < messages.length; i++) {
+		const m = measured[i];
+		const isSent = messages[i].participant.align === "right";
+		const bubbleY = cur;
+		const height = m.height + BM;
 
-    rows.push({
-      yTop: cur,
-      height,
-      bubbleY,
-      m,
-      isSent,
-      color: isSent ? SENT : RCVD,
-      textColor: isSent ? TXS : TXR,
-    });
+		rows.push({
+			yTop: cur,
+			height,
+			bubbleY,
+			m,
+			isSent,
+			color: isSent ? SENT : RCVD,
+			textColor: isSent ? TXS : TXR,
+		});
 
-    cur += height;
-  }
+		cur += height;
+	}
 
-  return rows;
+	return rows;
 }
 
 // Total content height once `count` messages have appeared.
 function contentHeight(rows: Row[], count: number): number {
-  if (count <= 0) return 0;
-  const r = rows[count - 1];
-  return r.yTop + r.height;
+	if (count <= 0) return 0;
+	const r = rows[count - 1];
+	return r.yTop + r.height;
 }
 
 // viewport_offset = max(0, content_height_so_far - message_area_height)
 function offsetForCount(rows: Row[], count: number): number {
-  return Math.max(0, contentHeight(rows, count) - MSG_AREA_H);
+	return Math.max(0, contentHeight(rows, count) - MSG_AREA_H);
 }
 
 function easeOutCubic(p: number): number {
-  const c = Math.min(1, Math.max(0, p));
-  return 1 - Math.pow(1 - c, 3);
+	const c = Math.min(1, Math.max(0, p));
+	return 1 - (1 - c) ** 3;
 }
 
 // How many messages have appeared by time t, and the (animated) scroll offset.
-function scrollStateAt(rows: Row[], appearTimes: number[], t: number): { visibleCount: number; offset: number } {
-  let visibleCount = 0;
-  for (const at of appearTimes) {
-    if (at <= t + 1e-6) visibleCount++;
-    else break;
-  }
-  if (visibleCount === 0) return { visibleCount: 0, offset: 0 };
+function scrollStateAt(
+	rows: Row[],
+	appearTimes: number[],
+	t: number,
+): { visibleCount: number; offset: number } {
+	let visibleCount = 0;
+	for (const at of appearTimes) {
+		if (at <= t + 1e-6) visibleCount++;
+		else break;
+	}
+	if (visibleCount === 0) return { visibleCount: 0, offset: 0 };
 
-  const latest = visibleCount - 1;
-  const tStart = appearTimes[latest];
-  const from = offsetForCount(rows, visibleCount - 1);
-  const to = offsetForCount(rows, visibleCount);
-  const e = easeOutCubic((t - tStart) / ANIM_SECONDS);
-  return { visibleCount, offset: from + (to - from) * e };
+	const latest = visibleCount - 1;
+	const tStart = appearTimes[latest];
+	const from = offsetForCount(rows, visibleCount - 1);
+	const to = offsetForCount(rows, visibleCount);
+	const e = easeOutCubic((t - tStart) / ANIM_SECONDS);
+	return { visibleCount, offset: from + (to - from) * e };
 }
 
-function tail(x: number, y: number, w: number, h: number, sent: boolean): string {
-  const ty = y + h - R;
-  if (sent) {
-    return `${x + w},${ty} ${x + w + TW},${ty + TH / 2} ${x + w},${ty + TH}`;
-  }
-  return `${x},${ty} ${x - TW},${ty + TH / 2} ${x},${ty + TH}`;
+function tail(
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	sent: boolean,
+): string {
+	const ty = y + h - R;
+	if (sent) {
+		return `${x + w},${ty} ${x + w + TW},${ty + TH / 2} ${x + w},${ty + TH}`;
+	}
+	return `${x},${ty} ${x - TW},${ty + TH / 2} ${x},${ty + TH}`;
 }
 
 function renderBubble(row: Row): string {
-  const parts: string[] = [];
-  const { m, isSent, color, textColor, bubbleY } = row;
+	const parts: string[] = [];
+	const { m, isSent, color, textColor, bubbleY } = row;
 
-  const x = isSent ? PANEL_RIGHT - m.width - SIDE_MARGIN : PANEL_X + SIDE_MARGIN;
+	const x = isSent
+		? PANEL_RIGHT - m.width - SIDE_MARGIN
+		: PANEL_X + SIDE_MARGIN;
 
-  parts.push(
-    `<g filter="url(#s)">`,
-    `<rect x="${x}" y="${bubbleY}" width="${m.width}" height="${m.height}" rx="${R}" fill="${color}"/>`,
-    `<polygon points="${tail(x, bubbleY, m.width, m.height, isSent)}" fill="${color}"/>`,
-    `</g>`,
-  );
+	parts.push(
+		`<g filter="url(#s)">`,
+		`<rect x="${x}" y="${bubbleY}" width="${m.width}" height="${m.height}" rx="${R}" fill="${color}"/>`,
+		`<polygon points="${tail(x, bubbleY, m.width, m.height, isSent)}" fill="${color}"/>`,
+		`</g>`,
+	);
 
-  const tx = x + PL;
-  const tb = bubbleY + PT + ASCENT;
-  for (let li = 0; li < m.lines.length; li++) {
-    parts.push(
-      `<text x="${tx}" y="${tb + li * LH}" font-size="${FS}" font-weight="${FW_WEIGHT}" fill="${textColor}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">${esc(m.lines[li])}</text>`,
-    );
-  }
+	const tx = x + PL;
+	const tb = bubbleY + PT + ASCENT;
+	for (let li = 0; li < m.lines.length; li++) {
+		parts.push(
+			`<text x="${tx}" y="${tb + li * LH}" font-size="${FS}" font-weight="${FW_WEIGHT}" fill="${textColor}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">${esc(m.lines[li])}</text>`,
+		);
+	}
 
-  return parts.join("\n");
+	return parts.join("\n");
 }
 
 // Right-side status bar cluster, left-to-right: signal bars -> wifi -> battery%.
 // Anchored to the panel's right edge.
 function renderStatusIcons(): string {
-  const cy = PANEL_TOP + 21;
-  const bottom = cy + 6;
-  const parts: string[] = [];
+	const cy = PANEL_TOP + 21;
+	const bottom = cy + 6;
+	const parts: string[] = [];
 
-  // Cellular signal bars (4, increasing height)
-  const heights = [5, 8, 11, 14];
-  for (let i = 0; i < heights.length; i++) {
-    const h = heights[i];
-    parts.push(`<rect x="${PANEL_RIGHT - 128 + i * 7}" y="${bottom - h}" width="4" height="${h}" rx="1" fill="${HEADER_TX}"/>`);
-  }
+	// Cellular signal bars (4, increasing height)
+	const heights = [5, 8, 11, 14];
+	for (let i = 0; i < heights.length; i++) {
+		const h = heights[i];
+		parts.push(
+			`<rect x="${PANEL_RIGHT - 128 + i * 7}" y="${bottom - h}" width="4" height="${h}" rx="1" fill="${HEADER_TX}"/>`,
+		);
+	}
 
-  // Wifi (two arcs + dot, opening downward)
-  const wx = PANEL_RIGHT - 88;
-  parts.push(
-    `<path d="M ${wx - 8} ${cy - 1.5} A 11 11 0 0 1 ${wx + 8} ${cy - 1.5}" fill="none" stroke="${HEADER_TX}" stroke-width="2" stroke-linecap="round"/>`,
-    `<path d="M ${wx - 5} ${cy + 1.5} A 6.5 6.5 0 0 1 ${wx + 5} ${cy + 1.5}" fill="none" stroke="${HEADER_TX}" stroke-width="2" stroke-linecap="round"/>`,
-    `<circle cx="${wx}" cy="${bottom - 1}" r="1.6" fill="${HEADER_TX}"/>`,
-  );
+	// Wifi (two arcs + dot, opening downward)
+	const wx = PANEL_RIGHT - 88;
+	parts.push(
+		`<path d="M ${wx - 8} ${cy - 1.5} A 11 11 0 0 1 ${wx + 8} ${cy - 1.5}" fill="none" stroke="${HEADER_TX}" stroke-width="2" stroke-linecap="round"/>`,
+		`<path d="M ${wx - 5} ${cy + 1.5} A 6.5 6.5 0 0 1 ${wx + 5} ${cy + 1.5}" fill="none" stroke="${HEADER_TX}" stroke-width="2" stroke-linecap="round"/>`,
+		`<circle cx="${wx}" cy="${bottom - 1}" r="1.6" fill="${HEADER_TX}"/>`,
+	);
 
-  // Battery percentage + icon
-  const batX = PANEL_RIGHT - 50;
-  const batY = cy - 6;
-  parts.push(
-    `<text x="${batX - 6}" y="${cy + 5}" text-anchor="end" font-size="13" font-weight="500" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">98</text>`,
-    `<rect x="${batX}" y="${batY}" width="24" height="12" rx="3" fill="none" stroke="${HEADER_TX}" stroke-opacity="0.5"/>`,
-    `<rect x="${batX + 2}" y="${batY + 2}" width="20" height="8" rx="1.5" fill="${HEADER_TX}"/>`,
-    `<rect x="${batX + 25}" y="${batY + 3.5}" width="2" height="5" rx="1" fill="${HEADER_TX}" fill-opacity="0.5"/>`,
-  );
+	// Battery percentage + icon
+	const batX = PANEL_RIGHT - 50;
+	const batY = cy - 6;
+	parts.push(
+		`<text x="${batX - 6}" y="${cy + 5}" text-anchor="end" font-size="13" font-weight="500" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">98</text>`,
+		`<rect x="${batX}" y="${batY}" width="24" height="12" rx="3" fill="none" stroke="${HEADER_TX}" stroke-opacity="0.5"/>`,
+		`<rect x="${batX + 2}" y="${batY + 2}" width="20" height="8" rx="1.5" fill="${HEADER_TX}"/>`,
+		`<rect x="${batX + 25}" y="${batY + 3.5}" width="2" height="5" rx="1" fill="${HEADER_TX}" fill-opacity="0.5"/>`,
+	);
 
-  return parts.join("\n");
+	return parts.join("\n");
 }
 
 // Video-camera button on the right of the header (mirrors the back chevron).
 function renderVideoButton(cy: number): string {
-  const cx = PANEL_RIGHT - 44;
-  return [
-    `<rect x="${cx - 24}" y="${cy - 17}" width="48" height="34" rx="9" fill="none" stroke="${ACCENT}" stroke-width="2"/>`,
-    `<rect x="${cx - 13}" y="${cy - 8}" width="15" height="16" rx="4" fill="none" stroke="${ACCENT}" stroke-width="2"/>`,
-    `<path d="M ${cx + 3} ${cy - 4} L ${cx + 11} ${cy - 8} L ${cx + 11} ${cy + 8} L ${cx + 3} ${cy + 4} Z" fill="none" stroke="${ACCENT}" stroke-width="2" stroke-linejoin="round"/>`,
-  ].join("\n");
+	const cx = PANEL_RIGHT - 44;
+	return [
+		`<rect x="${cx - 24}" y="${cy - 17}" width="48" height="34" rx="9" fill="none" stroke="${ACCENT}" stroke-width="2"/>`,
+		`<rect x="${cx - 13}" y="${cy - 8}" width="15" height="16" rx="4" fill="none" stroke="${ACCENT}" stroke-width="2"/>`,
+		`<path d="M ${cx + 3} ${cy - 4} L ${cx + 11} ${cy - 8} L ${cx + 11} ${cy + 8} L ${cx + 3} ${cy + 4} Z" fill="none" stroke="${ACCENT}" stroke-width="2" stroke-linejoin="round"/>`,
+	].join("\n");
 }
 
 // Fixed panel chrome: black rounded panel + status bar + contact header.
 // Identical on every frame — it must never translate or resize.
 function renderHeader(contactName: string, initial: string): string {
-  const sbY = PANEL_TOP + 28;
-  const avatarCy = PANEL_TOP + STATUSBAR_H + 28;
-  const nameY = PANEL_TOP + STATUSBAR_H + 76;
+	const sbY = PANEL_TOP + 28;
+	const avatarCy = PANEL_TOP + STATUSBAR_H + 28;
+	const nameY = PANEL_TOP + STATUSBAR_H + 76;
 
-  return [
-    // Status bar: time (left) + signal / wifi / battery% (right)
-    `<text x="${PANEL_X + 28}" y="${sbY}" font-size="15" font-weight="600" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">9:41</text>`,
-    renderStatusIcons(),
-    // Back chevron (left) + video button (right)
-    `<path d="M ${PANEL_X + 34} ${avatarCy - 10} L ${PANEL_X + 24} ${avatarCy} L ${PANEL_X + 34} ${avatarCy + 10}" fill="none" stroke="${ACCENT}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
-    renderVideoButton(avatarCy),
-    // Avatar + contact name
-    `<circle cx="${PANEL_CX}" cy="${avatarCy}" r="20" fill="${AVATAR_BG}"/>`,
-    `<text x="${PANEL_CX}" y="${avatarCy + 6}" text-anchor="middle" font-size="18" font-weight="600" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">${esc(initial)}</text>`,
-    `<text x="${PANEL_CX}" y="${nameY}" text-anchor="middle" font-size="14" font-weight="600" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">${esc(contactName)}</text>`,
-    // Divider above the message area
-    `<line x1="${PANEL_X}" y1="${MSG_AREA_TOP}" x2="${PANEL_RIGHT}" y2="${MSG_AREA_TOP}" stroke="${DIVIDER}" stroke-width="1"/>`,
-  ].join("\n");
+	return [
+		// Status bar: time (left) + signal / wifi / battery% (right)
+		`<text x="${PANEL_X + 28}" y="${sbY}" font-size="15" font-weight="600" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">9:41</text>`,
+		renderStatusIcons(),
+		// Back chevron (left) + video button (right)
+		`<path d="M ${PANEL_X + 34} ${avatarCy - 10} L ${PANEL_X + 24} ${avatarCy} L ${PANEL_X + 34} ${avatarCy + 10}" fill="none" stroke="${ACCENT}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
+		renderVideoButton(avatarCy),
+		// Avatar + contact name
+		`<circle cx="${PANEL_CX}" cy="${avatarCy}" r="20" fill="${AVATAR_BG}"/>`,
+		`<text x="${PANEL_CX}" y="${avatarCy + 6}" text-anchor="middle" font-size="18" font-weight="600" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">${esc(initial)}</text>`,
+		`<text x="${PANEL_CX}" y="${nameY}" text-anchor="middle" font-size="14" font-weight="600" fill="${HEADER_TX}" font-family="-apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif">${esc(contactName)}</text>`,
+		// Divider above the message area
+		`<line x1="${PANEL_X}" y1="${MSG_AREA_TOP}" x2="${PANEL_RIGHT}" y2="${MSG_AREA_TOP}" stroke="${DIVIDER}" stroke-width="1"/>`,
+	].join("\n");
 }
 
 // Build one overlay frame: fixed panel behind, clipped scrolling messages in the
 // middle, fixed header on top.
-function buildFrameSvg(rows: Row[], visibleCount: number, offset: number, contactName: string, initial: string): string {
-  const groupY = MSG_AREA_TOP - offset;
+function buildFrameSvg(
+	rows: Row[],
+	visibleCount: number,
+	offset: number,
+	contactName: string,
+	initial: string,
+): string {
+	const groupY = MSG_AREA_TOP - offset;
 
-  const bubbles: string[] = [];
-  for (let i = 0; i < visibleCount && i < rows.length; i++) {
-    const row = rows[i];
-    // Cull rows fully outside the visible viewport (they're clipped anyway).
-    if (row.yTop + row.height < offset - 2) continue;
-    if (row.yTop > offset + MSG_AREA_H + 2) continue;
-    bubbles.push(renderBubble(row));
-  }
+	const bubbles: string[] = [];
+	for (let i = 0; i < visibleCount && i < rows.length; i++) {
+		const row = rows[i];
+		// Cull rows fully outside the visible viewport (they're clipped anyway).
+		if (row.yTop + row.height < offset - 2) continue;
+		if (row.yTop > offset + MSG_AREA_H + 2) continue;
+		bubbles.push(renderBubble(row));
+	}
 
-  return `<svg width="${FW}" height="${FH}" viewBox="0 0 ${FW} ${FH}" xmlns="http://www.w3.org/2000/svg">
+	return `<svg width="${FW}" height="${FH}" viewBox="0 0 ${FW} ${FH}" xmlns="http://www.w3.org/2000/svg">
 <defs>
   <filter id="s" x="-10%" y="-10%" width="120%" height="130%">
     <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#000" flood-opacity="0.3"/>
@@ -353,82 +385,98 @@ ${renderHeader(contactName, initial)}
 </svg>`;
 }
 
-function deriveContact(chatConfig: ChatConfig): { name: string; initial: string } {
-  const participants = chatConfig.participants;
-  const entries = Object.values(participants);
-  const received = entries.find((p) => p.align === "left");
-  const chosen = received ?? entries[0];
-  const label = chosen?.label?.trim() ?? "";
-  // A bare single-letter label is the auto-default speaker id (e.g. "A"/"B"),
-  // not a real name — fall back to a generic placeholder.
-  const name = label.length >= 2 ? label : "Contact";
-  const initial = (name[0] ?? "C").toUpperCase();
-  return { name, initial };
+function deriveContact(chatConfig: ChatConfig): {
+	name: string;
+	initial: string;
+} {
+	const participants = chatConfig.participants;
+	const entries = Object.values(participants);
+	const received = entries.find((p) => p.align === "left");
+	const chosen = received ?? entries[0];
+	const label = chosen?.label?.trim() ?? "";
+	// A bare single-letter label is the auto-default speaker id (e.g. "A"/"B"),
+	// not a real name — fall back to a generic placeholder.
+	const name = label.length >= 2 ? label : "Contact";
+	const initial = (name[0] ?? "C").toUpperCase();
+	return { name, initial };
 }
 
 function pad5(n: number): string {
-  return String(n).padStart(5, "0");
+	return String(n).padStart(5, "0");
 }
 
 // === Public API ===
 
 export type ChatFrameSequence = {
-  pattern: string;
-  fps: number;
-  frameCount: number;
-  totalDuration: number;
+	pattern: string;
+	fps: number;
+	frameCount: number;
+	totalDuration: number;
 };
 
 // Render the chat overlay as a per-frame PNG sequence spanning the whole video.
 // Identical consecutive frames (static holds between messages) are copied rather
 // than re-rendered. FFmpeg composites the sequence as a single overlay stream.
 export async function renderChatFrames(
-  segments: GeneratedSegment[],
-  chatConfig: ChatConfig,
-  tempDir: string,
-  fps: number = FPS,
+	segments: GeneratedSegment[],
+	chatConfig: ChatConfig,
+	tempDir: string,
+	fps: number = FPS,
 ): Promise<ChatFrameSequence> {
-  const participants = chatConfig.participants;
-  if (!participants || Object.keys(participants).length === 0) {
-    throw new Error("chatConfig.participants must have at least one participant");
-  }
+	const participants = chatConfig.participants;
+	if (!participants || Object.keys(participants).length === 0) {
+		throw new Error(
+			"chatConfig.participants must have at least one participant",
+		);
+	}
 
-  const captions = buildTimedCaptions(segments);
-  const messages: CM[] = captions.map((c) => ({
-    speaker: c.speaker,
-    text: c.text,
-    participant: participants[c.speaker] ?? { label: c.speaker, color: "#007AFF", align: "right" },
-  }));
+	const captions = buildTimedCaptions(segments);
+	const messages: CM[] = captions.map((c) => ({
+		speaker: c.speaker,
+		text: c.text,
+		participant: participants[c.speaker] ?? {
+			label: c.speaker,
+			color: "#007AFF",
+			align: "right",
+		},
+	}));
 
-  const rows = await computeVirtualLayout(messages);
-  const appearTimes = captions.map((c) => c.startSeconds);
-  const totalDuration = captions.length > 0 ? captions[captions.length - 1].endSeconds : 0;
-  const { name, initial } = deriveContact(chatConfig);
+	const rows = await computeVirtualLayout(messages);
+	const appearTimes = captions.map((c) => c.startSeconds);
+	const totalDuration =
+		captions.length > 0 ? captions[captions.length - 1].endSeconds : 0;
+	const { name, initial } = deriveContact(chatConfig);
 
-  const frameCount = Math.max(1, Math.ceil(totalDuration * fps));
+	const frameCount = Math.max(1, Math.ceil(totalDuration * fps));
 
-  let prevSvg: string | null = null;
-  let prevPath: string | null = null;
+	let prevSvg: string | null = null;
+	let prevPath: string | null = null;
 
-  for (let n = 0; n < frameCount; n++) {
-    const t = n / fps;
-    const { visibleCount, offset } = scrollStateAt(rows, appearTimes, t);
-    const svg = buildFrameSvg(rows, visibleCount, Math.round(offset), name, initial);
-    const framePath = path.join(tempDir, `chat-frame-${pad5(n)}.png`);
+	for (let n = 0; n < frameCount; n++) {
+		const t = n / fps;
+		const { visibleCount, offset } = scrollStateAt(rows, appearTimes, t);
+		const svg = buildFrameSvg(
+			rows,
+			visibleCount,
+			Math.round(offset),
+			name,
+			initial,
+		);
+		const framePath = path.join(tempDir, `chat-frame-${pad5(n)}.png`);
 
-    if (svg === prevSvg && prevPath) {
-      await copyFile(prevPath, framePath);
-    } else {
-      await sharp(Buffer.from(svg)).png().toFile(framePath);
-      prevSvg = svg;
-      prevPath = framePath;
-    }
-  }
+		if (svg === prevSvg && prevPath) {
+			await copyFile(prevPath, framePath);
+		} else {
+			await sharp(Buffer.from(svg)).png().toFile(framePath);
+			prevSvg = svg;
+			prevPath = framePath;
+		}
+	}
 
-  return {
-    pattern: path.join(tempDir, "chat-frame-%05d.png"),
-    fps,
-    frameCount,
-    totalDuration,
-  };
+	return {
+		pattern: path.join(tempDir, "chat-frame-%05d.png"),
+		fps,
+		frameCount,
+		totalDuration,
+	};
 }

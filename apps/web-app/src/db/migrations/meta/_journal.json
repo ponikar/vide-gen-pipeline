@@ -1,27 +1,34 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1781710129970,
-      "tag": "0000_lucky_the_leader",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1781712031256,
-      "tag": "0001_premium_liz_osborn",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1782228273514,
-      "tag": "0002_cron_schedules",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1781710129970,
+			"tag": "0000_lucky_the_leader",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1781712031256,
+			"tag": "0001_premium_liz_osborn",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1782228273514,
+			"tag": "0002_cron_schedules",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1782231832553,
+			"tag": "0003_solid_leo",
+			"breakpoints": true
+		}
+	]
 }

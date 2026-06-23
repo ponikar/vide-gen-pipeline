@@ -1,59 +1,59 @@
 export type DialogueLine = {
-  speaker: string;
-  text: string;
+	speaker: string;
+	text: string;
 };
 
 export type Format = "subtitles" | "chat";
 
 export type ParticipantStyle = {
-  label: string;
-  color: string;
-  align: "left" | "right";
+	label: string;
+	color: string;
+	align: "left" | "right";
 };
 
 export type ChatConfig = {
-  participants: Record<string, ParticipantStyle>;
-  typingIndicator?: boolean;
+	participants: Record<string, ParticipantStyle>;
+	typingIndicator?: boolean;
 };
 
 export type InputConfig = {
-  video: string;
-  output: string;
-  ttsSpeed: number;
-  voices: Record<string, string>;
-  dialogue: DialogueLine[];
-  format: Format;
-  chatConfig?: ChatConfig;
+	video: string;
+	output: string;
+	ttsSpeed: number;
+	voices: Record<string, string>;
+	dialogue: DialogueLine[];
+	format: Format;
+	chatConfig?: ChatConfig;
 };
 
 export type CliOptions = {
-  inputPath?: string;
-  help: boolean;
-  outputOverride?: string;
-  videoOverride?: string;
-  speedOverride?: number;
-  voiceOverrides: Record<string, string>;
-  keepTemp: boolean;
+	inputPath?: string;
+	help: boolean;
+	outputOverride?: string;
+	videoOverride?: string;
+	speedOverride?: number;
+	voiceOverrides: Record<string, string>;
+	keepTemp: boolean;
 };
 
 export type CaptionChunk = {
-  index: number;
-  speaker: string;
-  text: string;
+	index: number;
+	speaker: string;
+	text: string;
 };
 
 export type TimedCaption = CaptionChunk & {
-  startSeconds: number;
-  endSeconds: number;
+	startSeconds: number;
+	endSeconds: number;
 };
 
 export type GeneratedSegment = CaptionChunk & {
-  audioPath: string;
-  durationSeconds: number;
+	audioPath: string;
+	durationSeconds: number;
 };
 
 export type VideoMetadata = {
-  width: number;
-  height: number;
-  durationSeconds: number;
+	width: number;
+	height: number;
+	durationSeconds: number;
 };
