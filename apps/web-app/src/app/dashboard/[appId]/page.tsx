@@ -546,9 +546,6 @@ export default function AppDetailPage() {
 
       <ConnectedAccountsSection appId={appId} />
 
-      <hr className="border-t" />
-
-      <ApiKeysSection appId={appId} />
     </div>
   );
 }
