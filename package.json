@@ -23,7 +23,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "dev:video": "pnpm --filter @gold-fish/video-server dev",
-    "dev:next": "pnpm --filter @gold-fish/web dev"
+    "dev:next": "pnpm --filter @gold-fish/web dev",
+    "dev:agent": "pnpm --filter @gold-fish/agent-worker dev"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

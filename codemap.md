@@ -54,7 +54,14 @@ Recent Additions: Cron Schedules + TikTok Provider + Agent-worker
 - apps/web-app/src/db/migrations/0003_solid_leo.sql — ALTER TABLE video_jobs ADD COLUMN cron_schedule_id (applied to production).
 - apps/web-app/src/server/api/routers/cronSchedule.ts — tRPC router: create (generates secret), list, update, delete, regenerateSecret, getWebhookInfo.
 - apps/web-app/src/app/dashboard/[appId]/page.tsx — CronScheduleSection component: create form, schedule list, webhook info display, secret management.
-Agent-worker needs env: POSTGRES_URL, GOOGLE_GENERATIVE_AI_API_KEY, VIDEO_SERVER_URL.
+Single source of truth for env vars: root .env
+- All shared env vars live ONLY in <root>/.env (POSTGRES_URL, SUPABASE_*, CLERK_*, INSTAGRAM_*, etc.)
+- Per-app .env files exist ONLY for app-specific overrides (not shared with other apps)
+- video-server .env: STORAGE_BUCKET, PORT (truly app-specific)
+- agent-worker has no .env (all vars come from root)
+- web-app loads root .env via: node --env-file=../../.env (no per-app .env needed)
+- Hono apps (video-server, agent-worker) load root + local via: tsx watch --env-file=../../.env --env-file=.env
+- Root scripts: dev:next, dev:video, dev:agent
 
 Known Issues
 - LandingPage.tsx has 2 pre-existing TS errors (clientX/clientY on untyped Event)
