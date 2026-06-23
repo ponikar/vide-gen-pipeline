@@ -62,3 +62,18 @@ export const connectedAccounts = pgTable("connected_accounts", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdate(() => new Date()),
 });
+
+export const cronSchedules = pgTable("cron_schedules", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  appId: uuid("app_id").notNull().references(() => apps.id, { onDelete: "cascade" }),
+  name: text("name"),
+  scheduleTime: text("schedule_time").notNull(),
+  scheduleDays: text("schedule_days").array().notNull(),
+  timezone: text("timezone").default("UTC"),
+  socialPlatforms: jsonb("social_platforms").$type<string[]>(),
+  webhookSecret: text("webhook_secret"),
+  enabled: boolean("enabled").default(true).notNull(),
+  lastTriggeredAt: timestamp("last_triggered_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdate(() => new Date()),
+});

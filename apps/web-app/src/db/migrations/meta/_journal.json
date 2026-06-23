@@ -15,6 +15,13 @@
       "when": 1781712031256,
       "tag": "0001_premium_liz_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782228273514,
+      "tag": "0002_cron_schedules",
+      "breakpoints": true
     }
   ]
 }
