@@ -16,9 +16,23 @@ type Step =
 	| "CREATING"
 	| "DONE";
 
+type ScrapedInfo = {
+	name: string;
+	description: string;
+	tagline: string;
+	targetAudience: string;
+	problemSolved: string;
+	keyFeatures: string[];
+	uniqueSellingPoints: string[];
+	toneOfVoice: string;
+	keyBenefits: string[];
+	useCases: string[];
+};
+
 type Collected = {
 	name: string;
 	description: string;
+	scrapedInfo?: ScrapedInfo;
 };
 
 interface Message {
@@ -114,9 +128,28 @@ export default function OnboardPage() {
 					{ url: trimmed.startsWith("http") ? trimmed : `https://${trimmed}` },
 					{
 						onSuccess: (data) => {
-							setCollected({ name: data.name, description: data.description });
+							setCollected({
+								name: data.name,
+								description: data.description,
+								scrapedInfo: data,
+							});
 							addBotMessage(
-								`I found this from your link:\n\nName: ${data.name}\nDescription: ${data.description}\n\nDoes this look right? (yes / no)`,
+								[
+									`**${data.name}**`,
+									`*${data.tagline}*`,
+									"",
+									`${data.description}`,
+									"",
+									`Target: ${data.targetAudience}`,
+									`Problem: ${data.problemSolved}`,
+									`Features: ${data.keyFeatures.join(", ")}`,
+									`USPs: ${data.uniqueSellingPoints.join(", ")}`,
+									`Vibe: ${data.toneOfVoice}`,
+									`Benefits: ${data.keyBenefits.join(", ")}`,
+									`Use cases: ${data.useCases.join(", ")}`,
+									"",
+									"Does this look right? (yes / no)",
+								].join("\n"),
 							);
 							advanceTo("REVIEW_SCRAPED");
 						},
@@ -135,11 +168,12 @@ export default function OnboardPage() {
 			case "REVIEW_SCRAPED": {
 				const isYes = SCRAPE_YES.includes(trimmed.toLowerCase());
 				const isNo = SCRAPE_NO.includes(trimmed.toLowerCase());
-				if (isYes) {
+if (isYes) {
 					advanceTo("CREATING");
 					createApp.mutate({
 						name: collected.name,
 						description: collected.description || undefined,
+						scrapedInfo: collected.scrapedInfo,
 					});
 					addBotMessage("Creating your app...");
 				} else if (isNo) {
@@ -151,7 +185,7 @@ export default function OnboardPage() {
 					);
 				}
 				break;
-			}
+
 
 			case "ASKING_NAME": {
 				setCollected((prev) => ({ ...prev, name: trimmed }));

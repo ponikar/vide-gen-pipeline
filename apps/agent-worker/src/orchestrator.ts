@@ -54,8 +54,31 @@ export async function runPipeline(
 		await setPhase("learning");
 
 		const [app] =
-			await db`SELECT name, description FROM apps WHERE id = ${appId}`;
+			await db`SELECT name, description, scraped_info FROM apps WHERE id = ${appId}`;
 		if (!app) throw new Error("App not found");
+
+		const scrapedInfo = app.scraped_info
+			? (app.scraped_info as Record<string, unknown>)
+			: null;
+
+		const appProfile = [
+			`Name: ${app.name}`,
+			app.description ? `Description: ${app.description}` : "",
+			scrapedInfo
+				? [
+						`Tagline: ${scrapedInfo.tagline ?? ""}`,
+						`Target audience: ${scrapedInfo.targetAudience ?? ""}`,
+						`Problem solved: ${scrapedInfo.problemSolved ?? ""}`,
+						`Key features: ${(scrapedInfo.keyFeatures as string[] | undefined)?.join(", ") ?? ""}`,
+						`Unique selling points: ${(scrapedInfo.uniqueSellingPoints as string[] | undefined)?.join(", ") ?? ""}`,
+						`Tone/voice: ${scrapedInfo.toneOfVoice ?? ""}`,
+						`Key benefits: ${(scrapedInfo.keyBenefits as string[] | undefined)?.join(", ") ?? ""}`,
+						`Use cases: ${(scrapedInfo.useCases as string[] | undefined)?.join(", ") ?? ""}`,
+					].join("\n")
+				: "",
+		]
+			.filter(Boolean)
+			.join("\n");
 
 		const posts = await db`
       SELECT title, link, stats, description, video_type, meta, created_at
@@ -88,7 +111,7 @@ export async function runPipeline(
 
 		const researchResult = await research(
 			app.name as string,
-			(app.description as string) ?? "",
+			appProfile,
 			learningResult.lessons,
 			hookCheatSheet,
 		);
@@ -97,7 +120,7 @@ export async function runPipeline(
 
 		const hookResult = await generateHooks(
 			app.name as string,
-			(app.description as string) ?? "",
+			appProfile,
 			researchResult.tone,
 			researchResult.hookFormula,
 			researchResult.templateType,
@@ -110,7 +133,7 @@ export async function runPipeline(
 
 		const scriptResult = await generateScript(
 			app.name as string,
-			(app.description as string) ?? "",
+			appProfile,
 			selectedHook,
 			researchResult.analysis,
 			dialogueRules,

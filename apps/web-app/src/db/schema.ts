@@ -10,11 +10,25 @@ import {
 
 export const videoTypeEnum = pgEnum("video_type", ["brainrot", "ugc", "slideshow"]);
 
+export type ScrapedInfo = {
+	name: string;
+	description: string;
+	tagline: string;
+	targetAudience: string;
+	problemSolved: string;
+	keyFeatures: string[];
+	uniqueSellingPoints: string[];
+	toneOfVoice: string;
+	keyBenefits: string[];
+	useCases: string[];
+};
+
 export const apps = pgTable("apps", {
 	id: uuid("id").defaultRandom().primaryKey(),
 	clerkUserId: text("clerk_user_id").notNull(),
 	name: text("name").notNull(),
 	description: text("description"),
+	scrapedInfo: jsonb("scraped_info").$type<ScrapedInfo>(),
 	fineTuned: boolean("fine_tuned").default(false).notNull(),
 	fineTunePreference: jsonb("fine_tune_preference").$type<
 		Record<string, unknown>

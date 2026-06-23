@@ -1,10 +1,33 @@
-import { google } from "@ai-sdk/google";
-import { generateObject } from "ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
-import { getHookCheatSheet, getDialogueRules, getCaptionFormula } from "./skills.js";
+import {
+	getCaptionFormula,
+	getDialogueRules,
+	getHookCheatSheet,
+} from "./skills.js";
 
-function getModel() {
-	return google("gemini-2.0-flash-lite");
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? "");
+
+const MODEL = "gemini-2.0-flash-lite";
+
+async function generateStructured<T>(
+	schema: z.ZodType<T>,
+	system: string,
+	prompt: string,
+): Promise<T> {
+	const model = genAI.getGenerativeModel({
+		model: MODEL,
+		systemInstruction: system,
+		generationConfig: {
+			responseMimeType: "application/json",
+			temperature: 0.7,
+		},
+	});
+
+	const result = await model.generateContent(prompt);
+	const text = result.response.text();
+	const parsed = JSON.parse(text);
+	return schema.parse(parsed);
 }
 
 const learningSchema = z.object({
@@ -73,19 +96,16 @@ const captionSchema = z.object({
 });
 
 export async function learnFromHistory(historicalPosts: string) {
-	const { object } = await generateObject({
-		model: getModel(),
-		schema: learningSchema,
-		system:
-			"You are a content performance analyst. Analyze historical posts and identify what's working and what's not.",
-		prompt: [
+	return generateStructured(
+		learningSchema,
+		"You are a content performance analyst. Analyze historical posts and identify what's working and what's not.",
+		[
 			"Analyze these historical posts and their performance:",
 			historicalPosts,
 			"",
 			"Identify: what hook patterns/formats got the best engagement, what didn't work, and what direction to take next.",
 		].join("\n"),
-	});
-	return object;
+	);
 }
 
 export async function research(
@@ -94,17 +114,16 @@ export async function research(
 	learnings: string,
 	hookSkill: string,
 ) {
-	const { object } = await generateObject({
-		model: getModel(),
-		schema: researchSchema,
-		system: [
+	return generateStructured(
+		researchSchema,
+		[
 			"You are a social media content strategist for indie app developers.",
 			"Analyze the app, apply learnings from past performance, and pick the best hook formula and template.",
 			"",
 			"Available hook formulas and templates:",
 			hookSkill,
 		].join("\n"),
-		prompt: [
+		[
 			`App: ${appName}`,
 			appDescription ? `Description: ${appDescription}` : "",
 			"",
@@ -115,8 +134,7 @@ export async function research(
 		]
 			.filter(Boolean)
 			.join("\n"),
-	});
-	return object;
+	);
 }
 
 export async function generateHooks(
@@ -127,10 +145,9 @@ export async function generateHooks(
 	templateType: string,
 	hookSkill: string,
 ) {
-	const { object } = await generateObject({
-		model: getModel(),
-		schema: hookSchema,
-		system: [
+	return generateStructured(
+		hookSchema,
+		[
 			"You are a hook writer for short-form video. Generate 8-10 hook variants using the specified formula.",
 			"Each hook is sentence 1 of the script — no setup, no context, starts mid-conflict.",
 			"",
@@ -141,7 +158,7 @@ export async function generateHooks(
 			"Scoring guide:",
 			hookSkill,
 		].join("\n"),
-		prompt: [
+		[
 			`App: ${appName}`,
 			appDescription ? `Description: ${appDescription}` : "",
 			"",
@@ -152,8 +169,7 @@ export async function generateHooks(
 		]
 			.filter(Boolean)
 			.join("\n"),
-	});
-	return object;
+	);
 }
 
 export async function generateScript(
@@ -163,17 +179,16 @@ export async function generateScript(
 	researchContext: string,
 	dialogueRules: string,
 ) {
-	const { object } = await generateObject({
-		model: getModel(),
-		schema: dialogueSchema,
-		system: [
+	return generateStructured(
+		dialogueSchema,
+		[
 			"You are a video script writer for short-form social media content.",
 			"Create a short engaging script. Hook is already chosen — build the body around it.",
 			"",
 			"Dialogue rules:",
 			dialogueRules,
 		].join("\n"),
-		prompt: [
+		[
 			`App: ${appName}`,
 			appDescription ? `Description: ${appDescription}` : "",
 			"",
@@ -186,8 +201,7 @@ export async function generateScript(
 		]
 			.filter(Boolean)
 			.join("\n"),
-	});
-	return object;
+	);
 }
 
 export async function generateCaptions(
@@ -196,16 +210,15 @@ export async function generateCaptions(
 	researchContext: string,
 	captionFormula: string,
 ) {
-	const { object } = await generateObject({
-		model: getModel(),
-		schema: captionSchema,
-		system: [
+	return generateStructured(
+		captionSchema,
+		[
 			"You are a social media caption writer for indie app developer content.",
 			"",
 			"Caption formula:",
 			captionFormula,
 		].join("\n"),
-		prompt: [
+		[
 			`App: ${appName}`,
 			`Script: ${script}`,
 			`Research: ${researchContext}`,
@@ -215,6 +228,5 @@ export async function generateCaptions(
 		]
 			.filter(Boolean)
 			.join("\n"),
-	});
-	return object;
+	);
 }
