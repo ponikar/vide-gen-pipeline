@@ -23,6 +23,7 @@ const dialogueSchema = z.object({
 		.min(1),
 	format: z.enum(["subtitles", "chat"]).optional(),
 	ttsSpeed: z.number().positive().max(3).optional(),
+	videoType: z.enum(["brainrot", "ugc", "slideshow"]),
 	videoDescription: z.string(),
 });
 
@@ -64,14 +65,14 @@ export async function generateScript(
 		model: getModel(),
 		schema: dialogueSchema,
 	system:
-		"You are a video script writer. Create short engaging hook video dialogues for social media. Keep each line under 15 words, 2-4 lines per video. Use a single speaker (A). Use warm friendly tone. Also generate a concise videoDescription (2-3 sentences) that describes what the video shows, the hook, the tone, and the message — this will be read by AI on future cycles to understand what this video was about.",
+		"You are a video script writer. Create short engaging hook video dialogues for social media. Keep each line under 15 words, 2-4 lines per video. Use a single speaker (A). Use warm friendly tone. Also generate a concise videoDescription (2-3 sentences) that describes what the video shows, the hook, the tone, and the message — this will be read by AI on future cycles to understand what this video was about. Choose a videoType from: brainrot (split-screen with gameplay), ugc (user-generated style, person talking to camera), or slideshow (image carousel).",
 	prompt: [
 		`App: ${appName}`,
 		appDescription ? `Description: ${appDescription}` : "",
 		"",
 		`Research context:\n${researchContext}`,
 		"",
-		"Generate a short hook video script (2-4 lines of dialogue, single speaker). Include a videoDescription field.",
+		"Generate a short hook video script (2-4 lines of dialogue, single speaker). Include videoType and videoDescription fields.",
 	]
 			.filter(Boolean)
 			.join("\n"),

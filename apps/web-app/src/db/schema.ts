@@ -1,11 +1,14 @@
 import {
 	boolean,
 	jsonb,
+	pgEnum,
 	pgTable,
 	text,
 	timestamp,
 	uuid,
 } from "drizzle-orm/pg-core";
+
+export const videoTypeEnum = pgEnum("video_type", ["brainrot", "ugc", "slideshow"]);
 
 export const apps = pgTable("apps", {
 	id: uuid("id").defaultRandom().primaryKey(),
@@ -33,6 +36,7 @@ export const posts = pgTable("posts", {
 	title: text("title").notNull(),
 	link: text("link"),
 	description: text("description"),
+	videoType: videoTypeEnum("video_type").default("brainrot").notNull(),
 	stats: jsonb("stats").$type<Record<string, unknown>>().default({}),
 	createdAt: timestamp("created_at", { withTimezone: true })
 		.defaultNow()
