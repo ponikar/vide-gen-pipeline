@@ -6,22 +6,22 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const CARDS = [
   {
-    src: "/videos/video1-web.mp4",
+    src: "/videos/1.mp4",
     title: "Hook in 3 seconds.",
     desc: "Stops the scroll before they even think about it.",
   },
   {
-    src: "/videos/video2-web.mp4",
+    src: "/videos/2.mp4",
     title: "TTS voiceover.",
     desc: "Scripted, narrated, and timed automatically.",
   },
   {
-    src: "/videos/video3-web.mp4",
+    src: "/videos/3.mp4",
     title: "Burned-in captions.",
     desc: "Every word on screen, perfectly synced.",
   },
   {
-    src: "/videos/Hero-web.mp4",
+    src: "/videos/1.mp4",
     title: "Auto-posted.",
     desc: "TikTok & Instagram, on schedule, no login needed from you.",
   },

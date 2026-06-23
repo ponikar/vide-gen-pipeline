@@ -1,3 +1,5 @@
+import { Iphone15Pro } from "@/components/ui/iphone-15-pro";
+
 export default function Hero() {
   return (
     <section className="hero" id="home">
@@ -13,22 +15,9 @@ export default function Hero() {
         </div>
 
         <div className="hero-phone">
-          <div className="phone">
-            <div className="phone-body">
-              <div className="phone-notch" />
-              <div className="phone-screen">
-                <video
-                  className="reel-video"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="auto"
-                  src="/videos/Hero-web.mp4"
-                />
-              </div>
-            </div>
-            <div className="phone-badge"><span className="dot" />Auto-posted · TikTok &amp; Instagram</div>
+          <div className="max-w-[290px] w-full mx-auto relative">
+            <Iphone15Pro videoSrc="/videos/1.mp4" />
+            <div className="phone-badge" style={{ zIndex: 20 }}><span className="dot" />Auto-posted · TikTok &amp; Instagram</div>
           </div>
         </div>
       </div>
