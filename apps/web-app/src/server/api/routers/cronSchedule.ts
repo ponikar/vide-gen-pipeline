@@ -1,8 +1,28 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { apps, cronSchedules } from "@/db/schema";
 import { protectedProcedure, router } from "@/server/trpc";
+
+const AGENT_WORKER_URL =
+	process.env.NEXT_PUBLIC_AGENT_WORKER_URL ?? "http://localhost:3002";
+
+async function notifyAgentWorker(
+	path: string,
+	body?: Record<string, unknown>,
+) {
+	const url = `${AGENT_WORKER_URL}${path}`;
+	const res = await fetch(url, {
+		method: body ? "POST" : "DELETE",
+		headers: body ? { "Content-Type": "application/json" } : undefined,
+		body: body ? JSON.stringify(body) : undefined,
+	});
+	if (!res.ok) {
+		const text = await res.text();
+		throw new Error(`Agent worker ${path} failed (${res.status}): ${text}`);
+	}
+	return res.json() as Promise<{ ok: boolean }>;
+}
 
 function generateSecret(): string {
 	return randomBytes(32).toString("hex");
@@ -30,10 +50,21 @@ export const cronScheduleRouter = router({
 			if (!app) throw new Error("App not found");
 
 			const secret = generateSecret();
+			const id = randomUUID();
+
+			await notifyAgentWorker("/api/schedules", {
+				schedule_id: id,
+				secret,
+				schedule_time: input.scheduleTime,
+				schedule_days: input.scheduleDays,
+				timezone: input.timezone,
+				social_platforms: input.socialPlatforms,
+			});
 
 			const [schedule] = await ctx.db
 				.insert(cronSchedules)
 				.values({
+					id,
 					appId: input.appId,
 					name: input.name,
 					scheduleTime: input.scheduleTime,
@@ -44,7 +75,7 @@ export const cronScheduleRouter = router({
 				})
 				.returning();
 
-			const webhookUrl = `${process.env.NEXT_PUBLIC_AGENT_WORKER_URL ?? "http://localhost:3002"}/nudge`;
+			const webhookUrl = `${AGENT_WORKER_URL}/nudge`;
 
 			return {
 				id: schedule.id,
@@ -162,6 +193,7 @@ export const cronScheduleRouter = router({
 				);
 			if (!app) throw new Error("App not found");
 
+			await notifyAgentWorker(`/api/schedules/${input.id}`);
 			await ctx.db.delete(cronSchedules).where(eq(cronSchedules.id, input.id));
 			return { ok: true };
 		}),

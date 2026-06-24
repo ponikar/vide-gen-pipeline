@@ -79,14 +79,14 @@ function ConnectedAccountsSection({ appId }: { appId: string }) {
 							>
 								<Unlink className="h-4 w-4" />
 							</button>
-						) : (
+						) : !connectedAccount ? (
 							<Link
 								href={instagramLink}
 								className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
 							>
 								Connect
 							</Link>
-						)}
+						) : null}
 					</div>
 
 					<div
@@ -116,14 +116,14 @@ function ConnectedAccountsSection({ appId }: { appId: string }) {
 							>
 								<Unlink className="h-4 w-4" />
 							</button>
-						) : (
+						) : !connectedAccount ? (
 							<Link
 								href={tiktokLink}
 								className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
 							>
 								Connect
 							</Link>
-						)}
+						) : null}
 					</div>
 				</div>
 			)}

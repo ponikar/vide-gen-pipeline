@@ -38,13 +38,6 @@ function parseDayPosts(raw: string) {
 	}
 }
 
-function cellColor(views: number): string {
-	if (views === 0) return "";
-	if (views < 100) return "bg-green-100 text-green-800";
-	if (views < 1000) return "bg-amber-100 text-amber-800";
-	return "bg-yellow-100 text-yellow-800";
-}
-
 export default function AnalyticsPage() {
 	const { appId } = useParams<{ appId: string }>();
 	const now = new Date();
@@ -72,7 +65,12 @@ export default function AnalyticsPage() {
 	const todayStr = dateStr(now.getDate());
 	const scheduleDays =
 		data?.cronSchedule?.scheduleTime
-			? { time: data.cronSchedule.scheduleTime, tz: data.cronSchedule.timezone ?? "UTC" }
+			? {
+					time: data.cronSchedule.scheduleTime,
+					tz: data.cronSchedule.timezone ?? "UTC",
+					scheduleDays: data.cronSchedule.scheduleDays ?? [],
+					socialPlatforms: data.cronSchedule.socialPlatforms ?? [],
+				}
 			: null;
 
 	const firstDay = new Date(year, month - 1, 1);
@@ -160,12 +158,6 @@ export default function AnalyticsPage() {
 								<>
 									<span className="font-semibold text-foreground">{data.monthTotalPosts}</span> posts &middot;{" "}
 									<span className="font-semibold text-foreground">{data.monthTotalViews.toLocaleString()}</span> views
-									{scheduleDays && (
-										<>
-											<span className="mx-2">&middot;</span>
-											Auto-posts daily at {scheduleDays.time} {scheduleDays.tz}
-										</>
-									)}
 								</>
 							) : null}
 						</div>
@@ -188,6 +180,36 @@ export default function AnalyticsPage() {
 							<RefreshCw className={`h-3.5 w-3.5 ${refreshStats.isPending ? "animate-spin" : ""}`} />
 						</button>
 					</div>
+
+					{scheduleDays && (
+						<div className="flex shrink-0 items-center gap-4 border-b bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
+							<div className="flex items-center gap-1.5">
+								<span className="font-medium text-foreground">Schedule</span>
+							</div>
+							<div className="flex items-center gap-1.5">
+								{scheduleDays.time}
+								<span className="text-[11px]">{scheduleDays.tz}</span>
+							</div>
+							{scheduleDays.scheduleDays.length > 0 && (
+								<div className="flex items-center gap-1.5">
+									{scheduleDays.scheduleDays.map((d) => (
+										<span key={d} className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase">
+											{d.slice(0, 3)}
+										</span>
+									))}
+								</div>
+							)}
+							{scheduleDays.socialPlatforms.length > 0 && (
+								<div className="flex items-center gap-1">
+									{scheduleDays.socialPlatforms.map((p) => (
+										<span key={p} className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+											{p === "instagram" ? "IG" : p === "tiktok" ? "TT" : p}
+										</span>
+									))}
+								</div>
+							)}
+						</div>
+					)}
 
 					<div className="grid flex-1 grid-cols-7 grid-rows-[auto_1fr_1fr_1fr_1fr_1fr_1fr]">
 						{WEEKDAYS.map((w) => (

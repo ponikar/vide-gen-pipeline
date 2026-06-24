@@ -55,6 +55,7 @@ export const analyticsRouter = router({
 					scheduleTime: cronSchedules.scheduleTime,
 					timezone: cronSchedules.timezone,
 					socialPlatforms: cronSchedules.socialPlatforms,
+					scheduleDays: cronSchedules.scheduleDays,
 				})
 				.from(cronSchedules)
 				.where(
