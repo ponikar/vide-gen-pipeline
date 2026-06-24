@@ -17,3 +17,4 @@ voices/*.wav
 *.tsbuildinfo
 .gstack/browse-network.log
 sadtalker/
+.gstack/

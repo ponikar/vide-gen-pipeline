@@ -80,6 +80,28 @@ Fixed
   - Scoped landing page `nav { position: fixed }` → `#nav` to prevent breaking dashboard sidebar's `<nav>`
   - Added missing `}` and fixed `if (isYes)` indentation in onboard/page.tsx (from scrape feature commit)
 
+Recent Changes: Agent-worker Refactoring
+- apps/agent-worker/src/ai.ts — Replaced `ai` + `@ai-sdk/google` with raw `@google/generative-ai` SDK (provider version pinned to 3.1.0, `ai` was on 4.x — incompatible). Uses `GoogleGenerativeAI` directly. Exports: `learnFromHistory()`, `generateScript()`, `generateHooks()`, `generateCaptions()`.
+- apps/agent-worker/src/orchestrator.ts — Expanded from 5 to 9 phases: research → enroll → script → hooks → render → caption → publish → fetch_stats → done. Uses `appProfile` from `scraped_info` for AI context. Background tasks via `c.executionCtx.waitUntil()`.
+- apps/agent-worker/src/skills.ts — New file: loads AI skill context from prompts/skills*.md. Reads all `prompts/skills-*.md` files and prepends to system prompts.
+- apps/agent-worker/src/db.ts — Fixed user query (was querying users table which doesn't exist on this DB; now uses clerkUserId directly from apps table).
+- apps/web-app/src/db/migrations/0005_*.sql — Added `app_profile` JSONB column to apps table (applied).
+
+Recent Changes: Rich App Scraping (Migration 0006)
+- apps/agent-worker/src/scraper.ts — Added `ScrapedInfo` extract: title, description, category, targetAudience, tone, contentFormat, visualStyle, brandColors, keyFeatures, appStoreUrl. Extracts from scraped HTML meta tags + structured data.
+- apps/web-app/src/db/migrations/0006_scraped_info.sql — ADD COLUMN scraped_info JSONB to apps (applied).
+- apps/web-app/src/app/dashboard/[appId]/page.tsx — Onboarding UI uses new fields: appProfile (editable description, target audience, tone), scrapedInfo (read-only), branding (colors + logomark).
+
+Recent Changes: Calendar & Analytics Feature
+- Schema: posts table now has `published_at`, `views`, `likes`, `comments`, `shares`, `reach` columns with defaults (0 for ints, NULL for reach).
+- apps/web-app/src/db/migrations/0007_calendar_analytics.sql — ALTER TABLE posts ADD COLUMN x 6 (applied).
+- apps/agent-worker/src/orchestrator.ts — INSERT now passes `published_at` and new stat columns (defaults 0).
+- apps/tiktok/client.ts — Added `getVideoStats()` method + `VideoStats` type (viewCount, likeCount, commentCount, shareCount). TikTok OAuth scope now includes `video.publish` + `video.upload` + `user.info.basic` + `user.info.stats`.
+- apps/web-app/src/server/api/routers/analytics.ts — New tRPC router: `getCalendar` (monthly calendar data with aggregated per-day stats, post list, cron schedule info), `refreshStats` (triggers agent-worker /refresh-stats).
+- apps/web-app/src/server/api/root.ts — Added `analyticsRouter`.
+- apps/web-app/src/app/dashboard/[appId]/analytics/page.tsx — Calendar UI: month grid with navigation, day cells colored by view count, click-to-expand day detail, month summary bar, refresh button.
+- apps/web-app/src/app/dashboard/[appId]/page.tsx — Added "Analytics" nav link next to app header.
+
 Known Issues
 - LandingPage.tsx has 2 pre-existing TS errors (clientX/clientY on untyped Event)
 - Video-server is in-memory — restart loses queued jobs (handled by getStatus marking DB jobs as failed)

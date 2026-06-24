@@ -2,6 +2,7 @@
 
 import {
 	ArrowLeft,
+	BarChart3,
 	Check,
 	Clock,
 	Copy,
@@ -655,6 +656,15 @@ export default function AppDetailPage() {
 						<Trash2 className="h-4 w-4" />
 						Delete
 					</button>
+				</div>
+				<div className="mt-4 flex gap-2">
+					<Link
+						href={`/dashboard/${appId}/analytics`}
+						className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+					>
+						<BarChart3 className="h-3.5 w-3.5" />
+						Analytics
+					</Link>
 				</div>
 			</div>
 

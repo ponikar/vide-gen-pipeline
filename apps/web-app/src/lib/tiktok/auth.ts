@@ -27,7 +27,7 @@ export function getAuthUrl(params: {
 	url.searchParams.set("client_key", env.TIKTOK_APP_ID!);
 	url.searchParams.set("redirect_uri", params.redirectUri);
 	url.searchParams.set("response_type", "code");
-	url.searchParams.set("scope", "user.info.basic,video.upload,video.publish");
+	url.searchParams.set("scope", "user.info.basic,video.upload,video.publish,video.list");
 	url.searchParams.set("state", params.state);
 	return url.toString();
 }

@@ -186,7 +186,6 @@ export default function OnboardPage() {
 				}
 				break;
 			}
-
 			case "ASKING_NAME": {
 				setCollected((prev) => ({ ...prev, name: trimmed }));
 				addBotMessage(
