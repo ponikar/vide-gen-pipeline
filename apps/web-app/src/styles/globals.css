@@ -128,8 +128,6 @@
 *::before,
 *::after {
 	box-sizing: border-box;
-	margin: 0;
-	padding: 0;
 }
 :root {
 	--teal: #4db6ac;
@@ -214,7 +212,7 @@ body {
 	bottom: -200px;
 	right: 10%;
 }
-nav {
+#nav {
 	position: fixed;
 	top: 0;
 	left: 0;
@@ -229,7 +227,7 @@ nav {
 		border-bottom 0.3s,
 		box-shadow 0.3s;
 }
-nav.scrolled {
+#nav.scrolled {
 	background: rgba(252, 253, 253, 0.82);
 	border-bottom: 1px solid var(--border);
 	backdrop-filter: blur(16px);
@@ -1394,7 +1392,7 @@ nav.scrolled {
 	color: var(--ink-3);
 }
 @media (max-width: 1024px) {
-	nav {
+	#nav {
 		padding: 18px 28px;
 	}
 	.nav-links {
@@ -1524,7 +1522,7 @@ nav.scrolled {
 	}
 }
 @media (max-width: 680px) {
-	nav {
+	#nav {
 		padding: 14px 18px;
 	}
 	.wrap {

@@ -168,7 +168,7 @@ export default function OnboardPage() {
 			case "REVIEW_SCRAPED": {
 				const isYes = SCRAPE_YES.includes(trimmed.toLowerCase());
 				const isNo = SCRAPE_NO.includes(trimmed.toLowerCase());
-if (isYes) {
+				if (isYes) {
 					advanceTo("CREATING");
 					createApp.mutate({
 						name: collected.name,
@@ -185,7 +185,7 @@ if (isYes) {
 					);
 				}
 				break;
-
+			}
 
 			case "ASKING_NAME": {
 				setCollected((prev) => ({ ...prev, name: trimmed }));
