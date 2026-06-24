@@ -74,6 +74,12 @@ Single source of truth for env vars: root .env
 - Hono apps (video-server, agent-worker) load root + local via: tsx watch --env-file=../../.env --env-file=.env
 - Root scripts: dev:next, dev:video, dev:agent
 
+Fixed
+- Dashboard UI collapse (commit e225424):
+  - Removed unlayered `* { margin: 0; padding: 0 }` from globals.css (overrode Tailwind padding/margin utilities via cascade layer precedence)
+  - Scoped landing page `nav { position: fixed }` → `#nav` to prevent breaking dashboard sidebar's `<nav>`
+  - Added missing `}` and fixed `if (isYes)` indentation in onboard/page.tsx (from scrape feature commit)
+
 Known Issues
 - LandingPage.tsx has 2 pre-existing TS errors (clientX/clientY on untyped Event)
 - Video-server is in-memory — restart loses queued jobs (handled by getStatus marking DB jobs as failed)
