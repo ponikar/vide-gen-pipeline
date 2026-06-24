@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Eye, Loader2, RefreshCw, TrendingDown, TrendingUp, X } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -69,6 +69,7 @@ export default function AnalyticsPage() {
 		}
 	}
 
+	const todayStr = dateStr(now.getDate());
 	const scheduleDays =
 		data?.cronSchedule?.scheduleTime
 			? { time: data.cronSchedule.scheduleTime, tz: data.cronSchedule.timezone ?? "UTC" }
@@ -113,6 +114,24 @@ export default function AnalyticsPage() {
 	}
 
 	const selectedDay = selectedDate ? daysMap.get(selectedDate) : null;
+
+	const sortedDates = [...daysMap.entries()].sort(([a], [b]) => a.localeCompare(b));
+	// Pre-load all day number trends for O(1) lookup
+	const trends = new Map<string, "up" | "down" | null>();
+	for (let i = 0; i < sortedDates.length; i++) {
+		const [date, entry] = sortedDates[i];
+		if (entry.postCount === 0) {
+			trends.set(date, null);
+			continue;
+		}
+		if (i === 0) { trends.set(date, null); continue; }
+		const prev = sortedDates[i - 1][1];
+		if (prev.postCount === 0 || prev.totalViews === entry.totalViews) {
+			trends.set(date, null);
+		} else {
+			trends.set(date, entry.totalViews > prev.totalViews ? "up" : "down");
+		}
+	}
 
 	return (
 		<div className="flex h-[calc(100vh-8rem)] w-full flex-col">
@@ -190,6 +209,8 @@ export default function AnalyticsPage() {
 							const hasPosts = dayData && dayData.postCount > 0;
 							const rowIdx = Math.floor(i / 7);
 							const isLastRow = rowIdx === rows;
+							const trend = hasPosts ? trends.get(ds) : null;
+							const isFuture = ds > todayStr;
 
 							return (
 								<div
@@ -199,32 +220,41 @@ export default function AnalyticsPage() {
 									}
 									className={`relative flex cursor-pointer flex-col overflow-hidden p-2.5 transition-colors hover:bg-accent/50 ${
 										isSelected ? "bg-accent" : ""
+									} ${
+										trend === "up"
+											? "bg-green-50"
+											: trend === "down"
+												? "bg-red-50"
+												: ""
 									} ${isToday ? "ring-1 ring-inset ring-primary/30" : ""} ${!isLastRow ? "border-b" : ""} ${i % 7 !== 6 ? "border-r" : ""}`}
 								>
 									<div className="flex items-center justify-between">
 										<span className={`text-sm font-medium ${isToday ? "text-primary" : "text-foreground"}`}>
 											{cell.day}
 										</span>
+										{trend && (
+											<div className={`${trend === "up" ? "text-green-600" : "text-red-500"}`}>
+												{trend === "up" ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+											</div>
+										)}
 									</div>
 									{hasPosts ? (
 										<div className="mt-1.5 flex flex-wrap gap-1">
-											<div
-												className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] font-semibold ${cellColor(dayData.totalViews)}`}
-											>
-												{dayData.postCount}p
+											<div className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
+												{dayData.postCount} POST
 											</div>
 											{dayData.totalViews > 0 && (
-												<div className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-700">
+												<div className="inline-flex items-center gap-1 rounded-md bg-white/70 px-2 py-1 text-[11px] font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
+													<Eye className="h-3 w-3" />
 													{dayData.totalViews >= 1000
-														? `${(dayData.totalViews / 1000).toFixed(1)}k`
+														? `${(dayData.totalViews / 1000).toFixed(1)}K`
 														: dayData.totalViews}
-													v
 												</div>
 											)}
 										</div>
 									) : (
 										<div className="mt-1.5 text-[11px] text-muted-foreground/60 italic">
-											No posts
+											{isFuture && scheduleDays ? "Scheduled" : "No posts"}
 										</div>
 									)}
 									{scheduleDays && (
@@ -238,35 +268,42 @@ export default function AnalyticsPage() {
 					</div>
 
 					{selectedDay && (
-						<div className="shrink-0 border-t p-3">
-							<h3 className="mb-2 text-xs font-medium">
-								{selectedDay.postCount} post{selectedDay.postCount !== 1 ? "s" : ""} &middot;{" "}
-								{selectedDay.totalViews.toLocaleString()} views &middot;{" "}
-								{selectedDay.totalLikes.toLocaleString()} likes &middot;{" "}
-								{selectedDay.totalComments.toLocaleString()} comments &middot;{" "}
-								{selectedDay.totalShares.toLocaleString()} shares
-							</h3>
-							<div className="space-y-1.5">
-								{parseDayPosts(selectedDay.posts).map((p) => (
-									<div
-										key={p.id}
-										className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-1.5"
-									>
-										<div className="flex items-center gap-2 min-w-0">
-											<span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
-												{p.platform === "instagram" ? "IG" : "TT"}
-											</span>
-											<span className="truncate text-sm">{p.title}</span>
+						<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setSelectedDate(null)}>
+							<div className="mx-4 w-full max-w-lg rounded-lg border bg-background p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
+								<div className="mb-4 flex items-center justify-between">
+									<h3 className="text-sm font-semibold">
+										{selectedDay.postCount} POST{selectedDay.postCount !== 1 ? "S" : ""} &middot;{" "}
+										{selectedDay.totalViews.toLocaleString()} VIEWS &middot;{" "}
+										{selectedDay.totalLikes.toLocaleString()} LIKES &middot;{" "}
+										{selectedDay.totalComments.toLocaleString()} COMMENTS &middot;{" "}
+										{selectedDay.totalShares.toLocaleString()} SHARES
+									</h3>
+									<button onClick={() => setSelectedDate(null)} className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent">
+										<X className="h-4 w-4" />
+									</button>
+								</div>
+								<div className="space-y-2">
+									{parseDayPosts(selectedDay.posts).map((p) => (
+										<div
+											key={p.id}
+											className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2"
+										>
+											<div className="flex items-center gap-2 min-w-0">
+												<span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+													{p.platform === "instagram" ? "IG" : "TT"}
+												</span>
+												<span className="truncate text-sm">{p.title}</span>
+											</div>
+											<div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+												<span>{p.views} views</span>
+												<span>{p.likes} likes</span>
+												{p.reach !== null && p.reach !== undefined && (
+													<span>{p.reach} reach</span>
+												)}
+											</div>
 										</div>
-										<div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-											<span>{p.views} views</span>
-											<span>{p.likes} likes</span>
-											{p.reach !== null && p.reach !== undefined && (
-												<span>{p.reach} reach</span>
-											)}
-										</div>
-									</div>
-								))}
+									))}
+								</div>
 							</div>
 						</div>
 					)}

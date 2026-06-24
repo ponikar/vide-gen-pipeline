@@ -104,6 +104,8 @@ Recent Changes: Calendar & Analytics Feature
 
 Known Issues
 - LandingPage.tsx has 2 pre-existing TS errors (clientX/clientY on untyped Event)
+- Migrations 0006 and 0007 were registered in the journal but never run against Neon DB.
+  Applied manually via psql on 2026-06-25.
 - Video-server is in-memory — restart loses queued jobs (handled by getStatus marking DB jobs as failed)
 - ffmpeg + ffprobe must be installed on video-server host
 - VIDEO_SERVER_URL=http://localhost:3001 in web-app .env
