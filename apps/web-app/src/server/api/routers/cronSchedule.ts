@@ -5,7 +5,7 @@ import { apps, cronSchedules } from "@/db/schema";
 import { protectedProcedure, router } from "@/server/trpc";
 
 const AGENT_WORKER_URL =
-	process.env.NEXT_PUBLIC_AGENT_WORKER_URL ?? "http://localhost:3002";
+	process.env.AGENT_WORKER ?? "http://localhost:3002";
 
 async function notifyAgentWorker(
 	path: string,

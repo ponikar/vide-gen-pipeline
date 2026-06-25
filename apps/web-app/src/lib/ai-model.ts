@@ -1,7 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { TRPCError } from "@trpc/server";
 import type { LanguageModel } from "ai";
-import { minimax } from "vercel-minimax-ai-provider";
+import { minimax, minimaxOpenAI } from "vercel-minimax-ai-provider";
 import { env } from "@/env";
 
 function getModel(): LanguageModel {
@@ -29,6 +29,10 @@ function getModel(): LanguageModel {
 
 export function getScrapeModel(): LanguageModel {
 	return getModel();
+}
+
+export function getJsonModel(): LanguageModel {
+	return minimaxOpenAI("MiniMax-M2");
 }
 
 export function getVideoModel(): LanguageModel {

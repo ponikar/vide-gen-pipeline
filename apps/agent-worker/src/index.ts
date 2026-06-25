@@ -99,15 +99,16 @@ app.post("/nudge", async (c) => {
 			? (schedule.social_platforms as string[])
 			: ["instagram"];
 
-		c.executionCtx.waitUntil(
-			runPipeline(
-				db,
-				schedule.id as string,
-				schedule.app_id as string,
-				platforms,
-				videoServerUrl,
-			),
-		);
+		void runPipeline(
+			db,
+			schedule.id as string,
+			schedule.app_id as string,
+			platforms,
+			videoServerUrl,
+		).catch((err: unknown) => {
+			const msg = err instanceof Error ? err.message : String(err);
+			console.error(`Pipeline failed: ${msg}`);
+		});
 
 		return c.json({ ok: true });
 	} catch (err) {

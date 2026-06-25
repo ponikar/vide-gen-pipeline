@@ -108,7 +108,7 @@ export default function NewAppPage() {
 				</div>
 				{scrapeAi.isError && (
 					<p className="mt-2 text-xs text-destructive">
-						{scrapeAi.error.message}
+						Couldn&apos;t scrape that page. Please try again or fill in the details manually.
 					</p>
 				)}
 				{scrapeAi.isSuccess && (

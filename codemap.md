@@ -102,6 +102,34 @@ Recent Changes: Calendar & Analytics Feature
 - apps/web-app/src/app/dashboard/[appId]/analytics/page.tsx — Calendar UI: month grid with navigation, day cells colored by view count, click-to-expand day detail, month summary bar, refresh button.
 - apps/web-app/src/app/dashboard/[appId]/page.tsx — Added "Analytics" nav link next to app header.
 
+Onboarding Chat Fix (2026-06-26)
+- Replaced the broken JSON-response onboarding flow with natural-language tRPC chat plus AI SDK tool calling. `apps/web-app/src/server/api/routers/onboarding.ts` exposes a `scrapeUrl` tool; the model decides whether to call it based on the user's message. There is no `JSON_PROMPT`, `responseSchema`, or model-text JSON parsing.
+- `apps/web-app/src/app/dashboard/onboard/page.tsx` no longer blindly calls scrape on the first user message. It sends chat history to `api.onboarding.chat`, renders only `reply`, and shows a create action only when the tool returns structured `scrapedInfo`.
+- `apps/web-app/src/server/api/routers/apps.ts` still uses AI SDK v6 structured output via `generateText({ output: Output.object(...) })` for direct `app.scrapeUrl`. The onboarding tool uses the same structured extraction internally after the model chooses the tool.
+- Restored `onboarding` router registration in `apps/web-app/src/server/api/root.ts`.
+- Verification: `npm run typecheck` in `apps/web-app` reports no onboarding errors. It still fails on the known unrelated `apps/web-app/src/components/landing/LandingPage.tsx` `clientX/clientY` Event typing errors.
+- Files modified in this iteration: `apps/web-app/src/app/dashboard/onboard/page.tsx`, `apps/web-app/src/server/api/routers/onboarding.ts`, `apps/web-app/src/server/api/routers/apps.ts`, `apps/web-app/src/server/api/root.ts`, `codemap.md`.
+
+Onboarding Tool-Call Diagnostics (2026-06-26)
+- Added focused server logs in `apps/web-app/src/server/api/routers/onboarding.ts` for request start, latest user preview, `scrapeUrl` tool execution, fetch status/content type/body length, readable text length/preview, structured extraction success/failure, AI SDK step/tool counts, and final response shape.
+- This is diagnostics-only; chat behavior and UI rendering were not changed.
+- Verification: `npm run typecheck` in `apps/web-app` has no onboarding errors. It still fails only on the known unrelated `apps/web-app/src/components/landing/LandingPage.tsx` `clientX/clientY` Event typing errors.
+- Files modified in this iteration: `apps/web-app/src/server/api/routers/onboarding.ts`, `codemap.md`.
+
+Onboarding Scrape Extraction Fix (2026-06-26)
+- Root cause from diagnostics: MiniMax did call `scrapeUrl`, but `generateText({ output: Output.object(...) })` failed with "No object generated: could not parse the response." Tool calling was working; structured extraction was the broken layer.
+- Added `apps/web-app/src/server/app-scraper.ts` as the shared scrape/extract helper. It avoids LLM JSON/object extraction for scraped data, uses Apple lookup API for App Store URLs, and uses deterministic HTML title/meta/body extraction for normal websites.
+- Updated `apps/web-app/src/server/api/routers/onboarding.ts` so the AI SDK tool still decides when scraping is needed, but the tool execution now calls the shared deterministic scraper and keeps the diagnostic logs.
+- Updated `apps/web-app/src/server/api/routers/apps.ts` so the direct `app.scrapeUrl` endpoint uses the same helper instead of keeping the duplicate `Output.object` path.
+- Verification: direct helper smoke tests passed for `https://apps.apple.com/au/app/malko-better-sleep-appblocker/id6762987084` (`source: app-store-lookup`, name `Malko: Better sleep appblocker`) and `https://aifantasy.ponikar.com` (`source: html-metadata`, name `AI Chat Fantasy`). `npm run typecheck` in `apps/web-app` still fails only on the known unrelated `LandingPage.tsx` `clientX/clientY` Event typing errors.
+- Files modified in this iteration: `apps/web-app/src/server/app-scraper.ts`, `apps/web-app/src/server/api/routers/onboarding.ts`, `apps/web-app/src/server/api/routers/apps.ts`, `codemap.md`.
+
+Node Worker Compatibility Fix (2026-06-26)
+- Fixed `apps/agent-worker/src/index.ts` to dispatch the pipeline with a plain Node background promise instead of `c.executionCtx.waitUntil()`. Hono documents `executionCtx` as Cloudflare Workers-specific, so it is not the correct API for `@hono/node-server`.
+- Updated `apps/agent-worker/package.json` and `apps/video-server/package.json` to load app-local env files with `--env-file-if-exists=.env`. Root `.env` remains required; per-app env files are documented as optional overrides, and `apps/agent-worker/.env` does not exist.
+- Verification: both app typechecks pass. `agent-worker` starts under Node and `POST /api/schedules` returns the expected validation error for `{}`. `video-server` starts under Node and `/api/health` returns `{"status":"ok"}`. Initial sandboxed `tsx` startup failed on a local IPC permission issue, so runtime startup was verified outside the sandbox.
+- Files modified in this iteration: `apps/agent-worker/src/index.ts`, `apps/agent-worker/package.json`, `apps/video-server/package.json`, `codemap.md`.
+
 Known Issues
 - LandingPage.tsx has 2 pre-existing TS errors (clientX/clientY on untyped Event)
 - Migrations 0006 and 0007 were registered in the journal but never run against Neon DB.

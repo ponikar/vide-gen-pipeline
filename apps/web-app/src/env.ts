@@ -14,6 +14,7 @@ export const env = createEnv({
 		TIKTOK_APP_ID: z.string().optional(),
 		TIKTOK_APP_SECRET: z.string().optional(),
 		VIDEO_SERVER_URL: z.string().default("http://localhost:3001"),
+		AGENT_WORKER: z.string().min(1)
 	},
 	client: {
 		NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),
@@ -45,7 +46,8 @@ export const env = createEnv({
 		NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL:
 			process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL,
 		NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL:
-			process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL,
+      process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL,
+    AGENT_WORKER: process.env.AGENT_WORKER
 	},
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,
 });
