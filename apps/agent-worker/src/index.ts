@@ -4,7 +4,9 @@ import { homedir } from "node:os";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { z } from "zod";
 import { createDb } from "./db.js";
+import { generateOnboardingPreviewPayloads } from "./fine-tune.js";
 import { runPipeline } from "./orchestrator.js";
 
 const db = createDb();
@@ -62,6 +64,29 @@ function crontabRemove(id: string) {
 }
 
 app.use("/*", cors());
+
+const onboardingPreviewRequestSchema = z.object({
+	app_id: z.string().min(1),
+	count: z.union([z.literal(3), z.literal(4)]).default(3),
+});
+
+app.post("/api/onboarding/preview-payloads", async (c) => {
+	try {
+		const input = onboardingPreviewRequestSchema.parse(await c.req.json());
+		const payloads = await generateOnboardingPreviewPayloads(
+			db,
+			input.app_id,
+			input.count,
+		);
+		return c.json({ payloads });
+	} catch (err) {
+		if (err instanceof z.ZodError) {
+			return c.json({ error: "Invalid onboarding preview request" }, 400);
+		}
+		const msg = err instanceof Error ? err.message : String(err);
+		return c.json({ error: `Onboarding preview generation failed: ${msg}` }, 500);
+	}
+});
 
 app.post("/nudge", async (c) => {
 	try {

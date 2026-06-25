@@ -130,6 +130,14 @@ Node Worker Compatibility Fix (2026-06-26)
 - Verification: both app typechecks pass. `agent-worker` starts under Node and `POST /api/schedules` returns the expected validation error for `{}`. `video-server` starts under Node and `/api/health` returns `{"status":"ok"}`. Initial sandboxed `tsx` startup failed on a local IPC permission issue, so runtime startup was verified outside the sandbox.
 - Files modified in this iteration: `apps/agent-worker/src/index.ts`, `apps/agent-worker/package.json`, `apps/video-server/package.json`, `codemap.md`.
 
+Onboarding Preview Video Generation via Agent Worker (2026-06-26)
+- Added `apps/agent-worker/src/fine-tune.ts` to generate onboarding preview render payloads from app name, description, and scraped info only. It uses the existing research/hooks/script prompt stack with an explicit "new app, no performance history yet" context and returns render-ready payloads plus hook/script metadata.
+- Added `POST /api/onboarding/preview-payloads` in `apps/agent-worker/src/index.ts`. It validates `{ app_id, count: 3 | 4 }` and returns `{ payloads }`; it does not render videos, publish, schedule cron, or read historical posts.
+- Replaced the duplicate web-app AI generation in `apps/web-app/src/server/api/routers/videoGeneration.ts`. The web app now verifies Clerk app ownership/fine-tune state, calls the agent-worker for preview payloads, creates `video_jobs`, schedules video-server renders server-side, stores `videoServerJobId` and `generationParams`, proxies status polling server-side, retries from stored params, and saves only selected completed jobs with output URLs.
+- Updated `apps/web-app/src/app/dashboard/[appId]/page.tsx` so preview jobs can have `videoServerJobId: null` when video-server scheduling fails. Removed unused public `NEXT_PUBLIC_VIDEO_SERVER_URL` from `apps/web-app/src/env.ts` so browser code has no video-server URL boundary.
+- Verification: `npm run typecheck` passes in `apps/agent-worker`. `npm run typecheck` in `apps/web-app` still fails only on the known unrelated `apps/web-app/src/components/landing/LandingPage.tsx` `clientX/clientY` Event typing errors. `git diff --check` passes. Source search confirms browser code no longer references `NEXT_PUBLIC_VIDEO_SERVER_URL`, `/api/generate`, or `/api/status`; only server-side router/orchestrator code calls video-server endpoints.
+- Files modified in this iteration: `apps/agent-worker/src/fine-tune.ts`, `apps/agent-worker/src/index.ts`, `apps/web-app/src/server/api/routers/videoGeneration.ts`, `apps/web-app/src/app/dashboard/[appId]/page.tsx`, `apps/web-app/src/env.ts`, `codemap.md`.
+
 Known Issues
 - LandingPage.tsx has 2 pre-existing TS errors (clientX/clientY on untyped Event)
 - Migrations 0006 and 0007 were registered in the journal but never run against Neon DB.

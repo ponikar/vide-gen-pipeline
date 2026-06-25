@@ -133,7 +133,7 @@ function ConnectedAccountsSection({ appId }: { appId: string }) {
 
 type VideoJob = {
 	dbId: string;
-	videoServerJobId: string;
+	videoServerJobId: string | null;
 	status: string;
 	outputUrl: string | null;
 	liked: boolean | null;
@@ -179,7 +179,7 @@ function VideoFineTuneSection({ appId }: { appId: string }) {
 			setVideos(
 				existingJobs.map((j) => ({
 					dbId: j.id,
-					videoServerJobId: j.videoServerJobId ?? "",
+					videoServerJobId: j.videoServerJobId,
 					status: j.status,
 					outputUrl: j.outputUrl,
 					liked: j.liked,
