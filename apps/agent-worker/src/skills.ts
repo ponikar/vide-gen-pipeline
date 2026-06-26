@@ -11,6 +11,60 @@ function load(path: string): string {
 const hookMd = load("../../../prompts/hook.md");
 const videoMd = load("../../../prompts/video.md");
 const videosContextMd = load("../../../prompts/videos-context.md");
+const videoUrlsMd = load("../../../video-urls.md");
+
+export type BackgroundVideoOption = {
+	label: string;
+	template: string;
+	url: string;
+};
+
+export function getBackgroundVideoOptions(): BackgroundVideoOption[] {
+	const options: BackgroundVideoOption[] = [];
+	let template = "Unknown";
+
+	for (const line of videoUrlsMd.split("\n")) {
+		const trimmed = line.trim();
+		const url = trimmed.match(/https?:\/\/\S+\.mp4/)?.[0];
+		if (url) {
+			options.push({
+				label: `video_${options.length + 1}`,
+				template,
+				url,
+			});
+			continue;
+		}
+
+		if (trimmed && trimmed !== "-") {
+			template = trimmed.replace(/\s*\(\d+\)\s*$/, "");
+		}
+	}
+
+	if (options.length === 0) {
+		throw new Error("No background video URLs found in video-urls.md");
+	}
+
+	return options;
+}
+
+export function formatBackgroundVideoOptions(
+	options: BackgroundVideoOption[],
+): string {
+	return options
+		.map((option) => `${option.label} | ${option.template} | ${option.url}`)
+		.join("\n");
+}
+
+export function resolveBackgroundVideoSelection(
+	selectedUrl: string,
+	options: BackgroundVideoOption[],
+): BackgroundVideoOption {
+	const selected = options.find((option) => option.url === selectedUrl);
+	if (!selected) {
+		throw new Error(`AI selected unknown background video URL: ${selectedUrl}`);
+	}
+	return selected;
+}
 
 export function getHookCheatSheet(): string {
 	return `HOOK FORMULAS:

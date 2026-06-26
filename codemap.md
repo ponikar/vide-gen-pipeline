@@ -160,6 +160,18 @@ Onboarding Preview Schema Fix (2026-06-27)
 - Verification: `pnpm --filter @gold-fish/agent-worker typecheck` passes. A live MiniMax `research()` smoke test now returns a valid object. A full `generateOnboardingPreviewPayloads()` smoke test with a fake DB row returned 3 payloads with valid formats, normalized categories, and dialogue lines.
 - Files modified in this iteration: `apps/agent-worker/src/ai.ts`, `apps/agent-worker/src/fine-tune.ts`, `codemap.md`.
 
+Video Background URL Fallback Fix (2026-06-27)
+- Root cause: video URLs are selected in `apps/agent-worker` and sent unchanged to video-server. All URLs parsed from `prompts/videos-context.md` return `200 video/mp4`, but the hardcoded fallback `https://hlneqkcervrvftffotxn.supabase.co/storage/v1/object/public/videos/1.mp4` returns `400 application/json`. If clip extraction produced an empty list, video-server failed in `resolveVideoSource()` with `Failed to download video: 400 Bad Request`.
+- Replaced that fallback in onboarding preview and cron render paths with the first valid listed Subway Surfers MP4. Updated `src/video.ts` download/content-type errors to include the failing URL.
+- Verification: network HEAD check confirmed every listed background URL returns `200 video/mp4` and the old fallback returns `400 application/json`. `rg` confirms the old fallback is gone. `pnpm --filter @gold-fish/agent-worker typecheck` and root `npm run typecheck` pass.
+- Files modified in this iteration: `apps/agent-worker/src/fine-tune.ts`, `apps/agent-worker/src/orchestrator.ts`, `src/video.ts`, `codemap.md`.
+
+AI Background Video Selection (2026-06-27)
+- Replaced the temporary deterministic/random clip selection in onboarding previews and scheduled generation with an AI selection stage. The model receives all 20 URLs from `video-urls.md`, their template names, the hook/script/research context, and recent choices, then returns one exact URL plus a short reason.
+- The URL field uses a runtime enum built from the parsed options, and `resolveBackgroundVideoSelection()` rejects anything outside that list. This prevents invented or modified URLs while keeping template metadata application-owned. Onboarding selections feed earlier choices from the same batch back into the next prompt; scheduled jobs read the last 10 saved selections from `video_jobs`. Selected URL/template/reasoning are saved in job generation parameters and post metadata.
+- Verification: the parser found 20 clips (5 Subway Surfers, 15 Minecraft Parkour) with no unknown templates; a live MiniMax selection chose a valid Minecraft clip different from the recent Subway clip and returned context-specific reasoning. `pnpm --filter @gold-fish/agent-worker typecheck`, root `npm run typecheck`, all 17 root tests, and `git diff --check` pass. The first smoke-test command was blocked before model execution because `.env` is not shell-sourceable; using Node's `--env-file=.env` loader succeeded.
+- Files modified in this iteration: `apps/agent-worker/src/ai.ts`, `apps/agent-worker/src/fine-tune.ts`, `apps/agent-worker/src/orchestrator.ts`, `apps/agent-worker/src/skills.ts`, `codemap.md`.
+
 Known Issues
 - LandingPage.tsx has 2 pre-existing TS errors (clientX/clientY on untyped Event)
 - Migrations 0006 and 0007 were registered in the journal but never run against Neon DB.

@@ -11,9 +11,11 @@ import type { LanguageModel } from "ai";
 import { minimaxOpenAI } from "vercel-minimax-ai-provider";
 import { z } from "zod";
 import {
+	formatBackgroundVideoOptions,
 	getCaptionFormula,
 	getDialogueRules,
 	getHookCheatSheet,
+	type BackgroundVideoOption,
 } from "./skills.js";
 
 const LOG_PREFIX = "[agent-worker.ai]";
@@ -270,6 +272,60 @@ export async function generateScript(
 			"",
 			"Build 2-4 more dialogue lines after the hook. Single speaker (A).",
 			"Include videoType, videoDescription (2-3 sentences describing what the video shows), and videoCategory.",
+		]
+			.filter(Boolean)
+			.join("\n"),
+	);
+}
+
+export async function selectBackgroundVideo(
+	appName: string,
+	appDescription: string,
+	selectedHook: string,
+	scriptContext: string,
+	researchContext: string,
+	recentVideoHistory: string,
+	availableVideos: BackgroundVideoOption[],
+) {
+	const firstUrl = availableVideos[0]?.url;
+	if (!firstUrl) {
+		throw new Error("No background videos available for AI selection");
+	}
+
+	const videoSelectionSchema = z.object({
+		selectedVideoUrl: z.enum([
+			firstUrl,
+			...availableVideos.slice(1).map((video) => video.url),
+		]),
+		reasoning: z.string().min(1),
+	});
+
+	return generateStructured(
+		"selectBackgroundVideo",
+		videoSelectionSchema,
+		[
+			"You are choosing the background gameplay video for a short-form social media render.",
+			"Choose exactly one URL from the provided available videos list.",
+			"Do not invent, shorten, rewrite, or modify URLs.",
+			"Reason about fit first: the background should support the hook, tone, and script pacing.",
+			"Diversify aggressively: avoid recently used URLs and avoid repeating the same template unless it is clearly the best match.",
+		].join("\n"),
+		[
+			`App: ${appName}`,
+			appDescription ? `Description: ${appDescription}` : "",
+			`Selected hook: ${selectedHook}`,
+			"",
+			`Script context:\n${scriptContext}`,
+			"",
+			`Research context:\n${researchContext}`,
+			"",
+			`Recent video history to diversify against:\n${recentVideoHistory}`,
+			"",
+			"Available videos. Format: label | template | exact URL",
+			formatBackgroundVideoOptions(availableVideos),
+			"",
+			"Return selectedVideoUrl as one exact URL from the available videos list.",
+			"Return reasoning as one short sentence.",
 		]
 			.filter(Boolean)
 			.join("\n"),

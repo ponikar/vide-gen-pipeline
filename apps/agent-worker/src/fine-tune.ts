@@ -1,9 +1,16 @@
-import { generateHooks, generateScript, research } from "./ai.js";
+import {
+	generateHooks,
+	generateScript,
+	research,
+	selectBackgroundVideo,
+} from "./ai.js";
 import type { Db } from "./db.js";
 import {
+	getBackgroundVideoOptions,
 	getDialogueRules,
 	getHookCheatSheet,
-	getVideoContext,
+	resolveBackgroundVideoSelection,
+	type BackgroundVideoOption,
 } from "./skills.js";
 
 type AppRow = {
@@ -26,6 +33,7 @@ export type OnboardingPreviewPayload = {
 		videoType: string;
 		videoDescription: string;
 		videoCategory: string;
+		backgroundVideo: BackgroundVideoOption & { reasoning: string };
 	};
 };
 
@@ -55,22 +63,6 @@ function appProfile(app: AppRow): string {
 		.join("\n");
 }
 
-function backgroundClips(videoContext: string, category: string): string[] {
-	const subwayClips =
-		videoContext
-			.split("Subway Surfers")[1]
-			?.split("Minecraft")[0]
-			?.match(/https?:\/\/[^\s,]+/g) ?? [];
-	const minecraftClips =
-		videoContext.split("Minecraft Parkour")[1]?.match(/https?:\/\/[^\s,]+/g) ??
-		[];
-
-	if (category === "minecraft_parkour" && minecraftClips.length > 0) {
-		return minecraftClips;
-	}
-	return subwayClips.length > 0 ? subwayClips : minecraftClips;
-}
-
 function normalizeVideoCategory(category: string): VideoCategory {
 	const normalized = category.toLowerCase().replace(/[\s-]+/g, "_");
 	return normalized.includes("minecraft") ? "minecraft_parkour" : "subway_surfers";
@@ -78,13 +70,6 @@ function normalizeVideoCategory(category: string): VideoCategory {
 
 function normalizeFormat(format: string | undefined): "subtitles" | "chat" {
 	return format === "chat" ? "chat" : "subtitles";
-}
-
-function pickClip(clips: string[], index: number): string {
-	if (clips.length === 0) {
-		return "https://hlneqkcervrvftffotxn.supabase.co/storage/v1/object/public/videos/1.mp4";
-	}
-	return clips[index % clips.length]!;
 }
 
 function withSelectedHook(
@@ -110,7 +95,7 @@ export async function generateOnboardingPreviewPayloads(
 
 	const hookCheatSheet = getHookCheatSheet();
 	const dialogueRules = getDialogueRules();
-	const videoContext = getVideoContext();
+	const backgroundVideoOptions = getBackgroundVideoOptions();
 	const profile = appProfile(app as AppRow);
 	const onboardingContext =
 		"New app, no performance history yet. Generate initial onboarding preview directions from the app profile only.";
@@ -137,7 +122,10 @@ export async function generateOnboardingPreviewPayloads(
 	].slice(0, count);
 
 	const payloads: OnboardingPreviewPayload[] = [];
-	for (const [index, selectedHook] of selectedHooks.entries()) {
+	const selectedBackgroundVideos: Array<
+		BackgroundVideoOption & { reasoning: string }
+	> = [];
+	for (const selectedHook of selectedHooks) {
 		const scriptResult = await generateScript(
 			(app as AppRow).name,
 			profile,
@@ -146,10 +134,35 @@ export async function generateOnboardingPreviewPayloads(
 			dialogueRules,
 		);
 		const videoCategory = normalizeVideoCategory(scriptResult.videoCategory);
-		const clips = backgroundClips(videoContext, videoCategory);
+		const recentVideoHistory =
+			selectedBackgroundVideos.length === 0
+				? "No background videos selected in this preview batch yet."
+				: selectedBackgroundVideos
+						.map(
+							(video) =>
+								`- ${video.label} | ${video.template} | ${video.url}`,
+						)
+						.join("\n");
+		const videoSelectionResult = await selectBackgroundVideo(
+			(app as AppRow).name,
+			profile,
+			selectedHook,
+			JSON.stringify(scriptResult),
+			JSON.stringify(researchResult),
+			recentVideoHistory,
+			backgroundVideoOptions,
+		);
+		const selectedBackgroundVideo = {
+			...resolveBackgroundVideoSelection(
+				videoSelectionResult.selectedVideoUrl,
+				backgroundVideoOptions,
+			),
+			reasoning: videoSelectionResult.reasoning,
+		};
+		selectedBackgroundVideos.push(selectedBackgroundVideo);
 
 		payloads.push({
-			video: pickClip(clips, index),
+			video: selectedBackgroundVideo.url,
 			dialogue: withSelectedHook(
 				selectedHook,
 				scriptResult.dialogue.map((d) => ({
@@ -168,6 +181,7 @@ export async function generateOnboardingPreviewPayloads(
 				videoType: scriptResult.videoType,
 				videoDescription: scriptResult.videoDescription,
 				videoCategory,
+				backgroundVideo: selectedBackgroundVideo,
 			},
 		});
 	}

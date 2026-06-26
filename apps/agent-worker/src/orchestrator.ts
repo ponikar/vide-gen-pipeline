@@ -9,13 +9,15 @@ import {
 	generateScript,
 	learnFromHistory,
 	research,
+	selectBackgroundVideo,
 } from "./ai.js";
 import type { Db } from "./db.js";
 import {
+	getBackgroundVideoOptions,
 	getCaptionFormula,
 	getDialogueRules,
 	getHookCheatSheet,
-	getVideoContext,
+	resolveBackgroundVideoSelection,
 } from "./skills.js";
 
 const POLL_INTERVAL = 2000;
@@ -38,7 +40,6 @@ export async function runPipeline(
 	const hookCheatSheet = getHookCheatSheet();
 	const dialogueRules = getDialogueRules();
 	const captionFormula = getCaptionFormula();
-	const videoContext = getVideoContext();
 
 	async function setPhase(phase: string) {
 		log(`phase: ${phase}`);
@@ -141,23 +142,43 @@ export async function runPipeline(
 
 		await setPhase("selecting_video");
 
-		const clips = videoContext.includes("minecraft")
-			? videoContext.split("Minecraft Parkour")[1]?.match(/https?:\/\/[^\s,]+/g) ?? []
-			: [];
-		const subwayClips = videoContext.split("Subway Surfers")[1]?.split("Minecraft")[0]?.match(/https?:\/\/[^\s,]+/g) ?? [];
-		const minecraftClips = videoContext.split("Minecraft Parkour")[1]?.match(/https?:\/\/[^\s,]+/g) ?? [];
-
-		const availableClips =
-			scriptResult.videoCategory === "minecraft_parkour" && minecraftClips.length > 0
-				? minecraftClips
-				: subwayClips.length > 0
-					? subwayClips
-					: [];
-
-		const selectedClip =
-			availableClips.length > 0
-				? availableClips[Math.floor(Math.random() * availableClips.length)]
-				: "https://hlneqkcervrvftffotxn.supabase.co/storage/v1/object/public/videos/1.mp4";
+		const recentVideoJobs = await db`
+			SELECT generation_params->'backgroundVideo' AS background_video
+			FROM video_jobs
+			WHERE app_id = ${appId}
+				AND generation_params->'backgroundVideo' IS NOT NULL
+			ORDER BY created_at DESC
+			LIMIT 10
+		`;
+		const recentVideoHistory =
+			recentVideoJobs.length === 0
+				? "No previously selected background videos."
+				: recentVideoJobs
+						.map(
+							(row: Record<string, unknown>) =>
+								`- ${JSON.stringify(row.background_video)}`,
+						)
+						.join("\n");
+		const backgroundVideoOptions = getBackgroundVideoOptions();
+		const videoSelectionResult = await selectBackgroundVideo(
+			app.name as string,
+			appProfile,
+			selectedHook,
+			JSON.stringify(scriptResult),
+			JSON.stringify(researchResult),
+			recentVideoHistory,
+			backgroundVideoOptions,
+		);
+		const selectedBackgroundVideo = {
+			...resolveBackgroundVideoSelection(
+				videoSelectionResult.selectedVideoUrl,
+				backgroundVideoOptions,
+			),
+			reasoning: videoSelectionResult.reasoning,
+		};
+		log(
+			`Selected background video: ${selectedBackgroundVideo.label} (${selectedBackgroundVideo.template}) — ${selectedBackgroundVideo.reasoning}`,
+		);
 
 		await setPhase("rendering");
 
@@ -175,7 +196,7 @@ export async function runPipeline(
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				video: selectedClip,
+				video: selectedBackgroundVideo.url,
 				dialogue,
 				voices,
 				format,
@@ -235,6 +256,7 @@ export async function runPipeline(
 			hookFormula: researchResult.hookFormula,
 			tone: researchResult.tone,
 			templateType: researchResult.templateType,
+			backgroundVideo: selectedBackgroundVideo,
 		};
 
 		const generationParams = {
@@ -246,6 +268,7 @@ export async function runPipeline(
 			videoType: scriptResult.videoType,
 			videoDescription: scriptResult.videoDescription,
 			videoCategory: scriptResult.videoCategory,
+			backgroundVideo: selectedBackgroundVideo,
 			meta,
 		};
 

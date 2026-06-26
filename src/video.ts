@@ -22,7 +22,7 @@ async function downloadVideo(url: string, tempDir: string): Promise<string> {
 	const response = await fetch(url);
 	if (!response.ok) {
 		throw new Error(
-			`Failed to download video: ${response.status} ${response.statusText}`,
+			`Failed to download video from ${url}: ${response.status} ${response.statusText}`,
 		);
 	}
 
@@ -32,7 +32,9 @@ async function downloadVideo(url: string, tempDir: string): Promise<string> {
 		!contentType.includes("video/") &&
 		!contentType.includes("application/octet-stream")
 	) {
-		throw new Error(`URL did not return a video content type: ${contentType}`);
+		throw new Error(
+			`URL did not return a video content type from ${url}: ${contentType}`,
+		);
 	}
 
 	await mkdir(tempDir, { recursive: true });
