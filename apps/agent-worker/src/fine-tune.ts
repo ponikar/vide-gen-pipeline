@@ -30,6 +30,7 @@ export type OnboardingPreviewPayload = {
 };
 
 type PreviewCount = 3 | 4;
+type VideoCategory = "subway_surfers" | "minecraft_parkour";
 
 function appProfile(app: AppRow): string {
 	const scrapedInfo = app.scraped_info;
@@ -68,6 +69,15 @@ function backgroundClips(videoContext: string, category: string): string[] {
 		return minecraftClips;
 	}
 	return subwayClips.length > 0 ? subwayClips : minecraftClips;
+}
+
+function normalizeVideoCategory(category: string): VideoCategory {
+	const normalized = category.toLowerCase().replace(/[\s-]+/g, "_");
+	return normalized.includes("minecraft") ? "minecraft_parkour" : "subway_surfers";
+}
+
+function normalizeFormat(format: string | undefined): "subtitles" | "chat" {
+	return format === "chat" ? "chat" : "subtitles";
 }
 
 function pickClip(clips: string[], index: number): string {
@@ -135,7 +145,8 @@ export async function generateOnboardingPreviewPayloads(
 			researchResult.analysis,
 			dialogueRules,
 		);
-		const clips = backgroundClips(videoContext, scriptResult.videoCategory);
+		const videoCategory = normalizeVideoCategory(scriptResult.videoCategory);
+		const clips = backgroundClips(videoContext, videoCategory);
 
 		payloads.push({
 			video: pickClip(clips, index),
@@ -148,7 +159,7 @@ export async function generateOnboardingPreviewPayloads(
 			),
 			voices: { A: "af_jessica" },
 			ttsSpeed: scriptResult.ttsSpeed ?? 1.2,
-			format: scriptResult.format ?? "subtitles",
+			format: normalizeFormat(scriptResult.format),
 			meta: {
 				selectedHook,
 				hookFormula: researchResult.hookFormula,
@@ -156,7 +167,7 @@ export async function generateOnboardingPreviewPayloads(
 				templateType: researchResult.templateType,
 				videoType: scriptResult.videoType,
 				videoDescription: scriptResult.videoDescription,
-				videoCategory: scriptResult.videoCategory,
+				videoCategory,
 			},
 		});
 	}

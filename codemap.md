@@ -153,6 +153,13 @@ Onboarding Confirmation Auto-Create (2026-06-27)
 - Verification: `git diff --check` passes. `npm run typecheck` in `apps/web-app` still fails only on the known unrelated `apps/web-app/src/components/landing/LandingPage.tsx` `clientX/clientY` Event typing errors.
 - Files modified in this iteration: `apps/web-app/src/server/api/routers/onboarding.ts`, `apps/web-app/src/app/dashboard/onboard/page.tsx`, `codemap.md`.
 
+Onboarding Preview Schema Fix (2026-06-27)
+- Root cause: `AI_PROVIDER=minimax` made the agent worker use the default Anthropic-compatible MiniMax provider path for `generateObject`. Live verification showed MiniMax returned Markdown prose for the research stage while the AI SDK warned schema `responseFormat` was unsupported, causing `No object generated: response did not match schema` / parse failures before preview payloads were created.
+- Updated `apps/agent-worker/src/ai.ts` to use MiniMax's OpenAI-compatible provider for structured calls, wrap models with JSON extraction, inject the actual JSON Schema into the system prompt, and log stage-specific `NoObjectGeneratedError` diagnostics with a response preview. Loosened LLM-facing schemas for model-selected labels and numeric score coercion so harmless wording drift does not fail validation.
+- Updated `apps/agent-worker/src/fine-tune.ts` to normalize model-produced video categories into the supported background clip buckets and normalize the preview format before building the render payload.
+- Verification: `pnpm --filter @gold-fish/agent-worker typecheck` passes. A live MiniMax `research()` smoke test now returns a valid object. A full `generateOnboardingPreviewPayloads()` smoke test with a fake DB row returned 3 payloads with valid formats, normalized categories, and dialogue lines.
+- Files modified in this iteration: `apps/agent-worker/src/ai.ts`, `apps/agent-worker/src/fine-tune.ts`, `codemap.md`.
+
 Known Issues
 - LandingPage.tsx has 2 pre-existing TS errors (clientX/clientY on untyped Event)
 - Migrations 0006 and 0007 were registered in the journal but never run against Neon DB.

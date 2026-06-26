@@ -1,7 +1,14 @@
 import { google } from "@ai-sdk/google";
-import { generateObject } from "ai";
+import {
+	extractJsonMiddleware,
+	generateObject,
+	NoObjectGeneratedError,
+	wrapLanguageModel,
+	zodSchema,
+} from "ai";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { LanguageModel } from "ai";
-import { minimax } from "vercel-minimax-ai-provider";
+import { minimaxOpenAI } from "vercel-minimax-ai-provider";
 import { z } from "zod";
 import {
 	getCaptionFormula,
@@ -9,31 +16,101 @@ import {
 	getHookCheatSheet,
 } from "./skills.js";
 
+const LOG_PREFIX = "[agent-worker.ai]";
+
+function extractJsonObject(text: string): string {
+	const trimmed = text
+		.trim()
+		.replace(/^```(?:json)?\s*\n?/i, "")
+		.replace(/\n?```\s*$/i, "")
+		.trim();
+	const start = trimmed.indexOf("{");
+	const end = trimmed.lastIndexOf("}");
+
+	if (start >= 0 && end > start) {
+		return trimmed.slice(start, end + 1);
+	}
+	return trimmed;
+}
+
+function withJsonExtraction(model: LanguageModelV3): LanguageModel {
+	return wrapLanguageModel({
+		model,
+		middleware: extractJsonMiddleware({ transform: extractJsonObject }),
+	});
+}
+
+function preview(value: string | undefined, max = 500): string | undefined {
+	if (!value) return undefined;
+	const normalized = value.replace(/\s+/g, " ").trim();
+	return normalized.length > max
+		? `${normalized.slice(0, max).trim()}...`
+		: normalized;
+}
+
+async function jsonOnlyInstructions<T>(schema: z.ZodType<T>): Promise<string> {
+	const jsonSchema = await zodSchema(schema).jsonSchema;
+	return [
+		"Return only one valid JSON object that matches this JSON Schema.",
+		"Do not include markdown, code fences, headings, commentary, or prose outside the JSON object.",
+		"If a field is uncertain, fill it with the best available short value that still matches the schema.",
+		"",
+		"JSON Schema:",
+		JSON.stringify(jsonSchema),
+	].join("\n");
+}
+
 function getModel(): LanguageModel {
 	const provider = process.env.AI_PROVIDER ?? "google";
 	switch (provider) {
 		case "google":
-			return google("gemini-2.0-flash-lite");
+			return withJsonExtraction(google("gemini-2.0-flash-lite"));
 		case "minimax":
-			return minimax("MiniMax-M2");
+			return withJsonExtraction(minimaxOpenAI("MiniMax-M2"));
 		default:
-			return google("gemini-2.0-flash-lite");
+			return withJsonExtraction(google("gemini-2.0-flash-lite"));
 	}
 }
 
 async function generateStructured<T>(
+	label: string,
 	schema: z.ZodType<T>,
 	system: string,
 	prompt: string,
 ): Promise<T> {
-	const { object } = await generateObject({
-		model: getModel(),
-		system,
-		prompt,
-		schema,
-		temperature: 0.7,
-	});
-	return object;
+	try {
+		const strictSystem = [
+			system,
+			"",
+			await jsonOnlyInstructions(schema),
+		].join("\n");
+		const { object } = await generateObject({
+			model: getModel(),
+			system: strictSystem,
+			prompt,
+			schema,
+			schemaName: label,
+			temperature: 0.7,
+		});
+		return object;
+	} catch (err) {
+		if (NoObjectGeneratedError.isInstance(err)) {
+			const causeMessage =
+				err.cause instanceof Error ? err.cause.message : undefined;
+			console.error(LOG_PREFIX, "structured_generation_failed", {
+				label,
+				message: err.message,
+				cause: causeMessage,
+				finishReason: err.finishReason,
+				model: err.response?.modelId,
+				textPreview: preview(err.text),
+			});
+			throw new Error(
+				`AI structured generation failed during ${label}: ${err.message}`,
+			);
+		}
+		throw err;
+	}
 }
 
 const learningSchema = z.object({
@@ -46,23 +123,8 @@ const researchSchema = z.object({
 	analysis: z.string(),
 	recommendedFocus: z.string(),
 	tone: z.string(),
-	hookFormula: z.enum([
-		"missing_piece",
-		"hidden_thing",
-		"reveal_tease",
-		"wrong_assumption_flip",
-		"unpopular_opinion",
-		"direct_accusation",
-		"stop_scrolling_callout",
-		"pov_frame",
-		"shared_secret",
-		"mistake_warning",
-		"cost_frame",
-		"window_closing",
-		"direct_before_after",
-		"discovery_moment",
-	]),
-	templateType: z.enum(["brainrot", "ugc", "slideshow"]),
+	hookFormula: z.string().min(1),
+	templateType: z.string().min(1),
 });
 
 const hookSchema = z.object({
@@ -70,12 +132,12 @@ const hookSchema = z.object({
 		.array(
 			z.object({
 				text: z.string(),
-				specificity: z.number().min(1).max(5),
-				tension: z.number().min(1).max(5),
-				payability: z.number().min(1).max(5),
+				specificity: z.coerce.number().min(1).max(5),
+				tension: z.coerce.number().min(1).max(5),
+				payability: z.coerce.number().min(1).max(5),
 			}),
 		)
-		.min(8)
+		.min(3)
 		.max(10),
 	selectedText: z.string(),
 });
@@ -90,10 +152,10 @@ const dialogueSchema = z.object({
 		)
 		.min(1),
 	format: z.enum(["subtitles", "chat"]).optional(),
-	ttsSpeed: z.number().positive().max(3).optional(),
-	videoType: z.enum(["brainrot", "ugc", "slideshow"]),
+	ttsSpeed: z.coerce.number().positive().max(3).optional(),
+	videoType: z.string().min(1),
 	videoDescription: z.string(),
-	videoCategory: z.enum(["subway_surfers", "minecraft_parkour"]),
+	videoCategory: z.string().min(1),
 });
 
 const captionSchema = z.object({
@@ -103,6 +165,7 @@ const captionSchema = z.object({
 
 export async function learnFromHistory(historicalPosts: string) {
 	return generateStructured(
+		"learnFromHistory",
 		learningSchema,
 		"You are a content performance analyst. Analyze historical posts and identify what's working and what's not.",
 		[
@@ -121,6 +184,7 @@ export async function research(
 	hookSkill: string,
 ) {
 	return generateStructured(
+		"research",
 		researchSchema,
 		[
 			"You are a social media content strategist for indie app developers.",
@@ -152,6 +216,7 @@ export async function generateHooks(
 	hookSkill: string,
 ) {
 	return generateStructured(
+		"generateHooks",
 		hookSchema,
 		[
 			"You are a hook writer for short-form video. Generate 8-10 hook variants using the specified formula.",
@@ -186,6 +251,7 @@ export async function generateScript(
 	dialogueRules: string,
 ) {
 	return generateStructured(
+		"generateScript",
 		dialogueSchema,
 		[
 			"You are a video script writer for short-form social media content.",
@@ -217,6 +283,7 @@ export async function generateCaptions(
 	captionFormula: string,
 ) {
 	return generateStructured(
+		"generateCaptions",
 		captionSchema,
 		[
 			"You are a social media caption writer for indie app developer content.",
