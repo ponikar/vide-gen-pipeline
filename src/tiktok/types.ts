@@ -24,3 +24,11 @@ export type PostResult = {
 	postUrl?: string;
 	publishId: string;
 };
+
+export type VideoStats = {
+	id: string;
+	viewCount: number;
+	likeCount: number;
+	commentCount: number;
+	shareCount: number;
+};

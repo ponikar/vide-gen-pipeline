@@ -1,5 +1,6 @@
 import {
 	boolean,
+	integer,
 	jsonb,
 	pgEnum,
 	pgTable,
@@ -50,8 +51,21 @@ export const posts = pgTable("posts", {
 	title: text("title").notNull(),
 	link: text("link"),
 	description: text("description"),
+	caption: text("caption"),
 	videoType: videoTypeEnum("video_type").default("brainrot").notNull(),
+	platform: text("platform"),
+	platformPostId: text("platform_post_id"),
+	type: text("type"),
+	meta: jsonb("meta").$type<Record<string, unknown>>().default({}),
+	videoJobId: text("video_job_id"),
+	status: text("status").default("published"),
 	stats: jsonb("stats").$type<Record<string, unknown>>().default({}),
+	publishedAt: timestamp("published_at", { withTimezone: true }),
+	views: integer("views").default(0).notNull(),
+	likes: integer("likes").default(0).notNull(),
+	comments: integer("comments").default(0).notNull(),
+	shares: integer("shares").default(0).notNull(),
+	reach: integer("reach"),
 	createdAt: timestamp("created_at", { withTimezone: true })
 		.defaultNow()
 		.notNull(),

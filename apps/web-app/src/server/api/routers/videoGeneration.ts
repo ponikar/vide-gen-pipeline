@@ -1,17 +1,11 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { TRPCError } from "@trpc/server";
-import { generateObject } from "ai";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { apps, videoJobs } from "@/db/schema";
 import { env } from "@/env";
-import { getVideoModel } from "@/lib/ai-model";
 import { protectedProcedure, router } from "@/server/trpc";
 
-const PROMPTS_DIR = path.resolve(process.cwd(), "..", "..", "prompts");
-
-const hookSchema = z.object({
+const previewPayloadSchema = z.object({
 	video: z.string().url(),
 	dialogue: z
 		.array(
@@ -21,66 +15,120 @@ const hookSchema = z.object({
 			}),
 		)
 		.min(1),
-	voices: z.record(z.string()).optional(),
-	ttsSpeed: z.number().positive().max(3).optional(),
-	format: z.enum(["subtitles", "chat"]).optional(),
+	voices: z.record(z.string()),
+	ttsSpeed: z.number().positive().max(3),
+	format: z.enum(["subtitles", "chat"]),
+	meta: z.object({
+		selectedHook: z.string(),
+		hookFormula: z.string(),
+		tone: z.string(),
+		templateType: z.string(),
+		videoType: z.string(),
+		videoDescription: z.string(),
+		videoCategory: z.string(),
+	}),
 });
 
-const hooksSchema = z.object({
-	hooks: z.array(hookSchema).length(3),
+const agentPreviewResponseSchema = z.object({
+	payloads: z.array(previewPayloadSchema).min(1).max(4),
 });
 
-type Hook = z.infer<typeof hookSchema>;
+const videoServerGenerateResponseSchema = z.object({
+	jobId: z.string().min(1),
+});
 
-async function readPrompt(name: string): Promise<string> {
-	try {
-		return await readFile(path.join(PROMPTS_DIR, name), "utf8");
-	} catch {
-		return "";
+const videoServerStatusResponseSchema = z.object({
+	status: z.string(),
+	error: z.string().optional(),
+	outputUrl: z.string().nullable().optional(),
+});
+
+type PreviewPayload = z.infer<typeof previewPayloadSchema>;
+type PreviewStatus = {
+	id: string;
+	status: "pending" | "running" | "done" | "failed";
+	outputUrl: string | null;
+	error: string | null;
+	liked: boolean | null;
+};
+
+const DEFAULT_PREVIEW_COUNT = 3;
+
+function normalizeStatus(status: string): PreviewStatus["status"] {
+	if (
+		status === "pending" ||
+		status === "running" ||
+		status === "done" ||
+		status === "failed"
+	) {
+		return status;
 	}
+	return "pending";
 }
 
-async function generateHooks(
-	appName: string,
-	appDescription: string,
-): Promise<Hook[]> {
-	const hookPrompt = await readPrompt("hook.md");
-	const videoPrompt = await readPrompt("video.md");
-	const videosContext = await readPrompt("videos-context.md");
+async function readError(res: Response): Promise<string> {
+	const text = await res.text();
+	return text || `HTTP ${res.status}`;
+}
 
-	const system = [
-		"You are a video content strategist. Given an app name and description, generate 3 short hook videos.",
-		"Each hook should be a short, punchy video that grabs attention and explains the app's value.",
-		"",
-		videoPrompt,
-		"",
-		hookPrompt,
-		"",
-		"Available background videos (pick the most relevant ones for each hook):",
-		videosContext,
-	]
-		.filter(Boolean)
-		.join("\n");
-
-	const { object } = await generateObject({
-		model: getVideoModel(),
-		schema: hooksSchema,
-		system,
-		prompt: [
-			`App name: ${appName}`,
-			appDescription ? `App description: ${appDescription}` : "",
-			"",
-			"Generate 3 hook videos. Each must use a background video from the available list.",
-			"The dialogue should be spoken by a single speaker (speaker: 'A').",
-			"Use af_heart voice (warm, friendly) for all hooks.",
-			"Keep dialogue short — 2-4 lines per hook, each line under 15 words.",
-			"Format should be 'subtitles' (not chat) for all hooks.",
-		]
-			.filter(Boolean)
-			.join("\n"),
+async function getPreviewPayloads(appId: string): Promise<PreviewPayload[]> {
+	const res = await fetch(`${env.AGENT_WORKER}/api/onboarding/preview-payloads`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ app_id: appId, count: DEFAULT_PREVIEW_COUNT }),
 	});
 
-	return object.hooks;
+	if (!res.ok) {
+		throw new TRPCError({
+			code: "INTERNAL_SERVER_ERROR",
+			message: `Agent worker preview generation failed: ${await readError(res)}`,
+		});
+	}
+
+	const parsed = agentPreviewResponseSchema.safeParse(await res.json());
+	if (!parsed.success) {
+		throw new TRPCError({
+			code: "INTERNAL_SERVER_ERROR",
+			message: "Agent worker returned invalid preview payloads",
+		});
+	}
+
+	return parsed.data.payloads;
+}
+
+async function scheduleVideo(payload: PreviewPayload): Promise<string> {
+	const res = await fetch(`${env.VIDEO_SERVER_URL}/api/generate`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(payload),
+	});
+
+	if (!res.ok) {
+		throw new Error(`Video server returned ${await readError(res)}`);
+	}
+
+	const parsed = videoServerGenerateResponseSchema.safeParse(await res.json());
+	if (!parsed.success) {
+		throw new Error("Video server returned an invalid generate response");
+	}
+
+	return parsed.data.jobId;
+}
+
+function toPreviewStatus(job: {
+	id: string;
+	status: string;
+	outputUrl: string | null;
+	error: string | null;
+	liked: boolean | null;
+}): PreviewStatus {
+	return {
+		id: job.id,
+		status: normalizeStatus(job.status),
+		outputUrl: job.outputUrl,
+		error: job.error,
+		liked: job.liked,
+	};
 }
 
 export const videoGenerationRouter = router({
@@ -105,43 +153,32 @@ export const videoGenerationRouter = router({
 				});
 			}
 
-			const hooks = await generateHooks(app.name, app.description ?? "");
+			const payloads = await getPreviewPayloads(app.id);
 
 			const created: Array<{
 				dbId: string;
-				videoServerJobId: string;
-				hook: Hook;
+				videoServerJobId: string | null;
 			}> = [];
 
-			for (const hook of hooks) {
+			for (const payload of payloads) {
 				const [job] = await ctx.db
 					.insert(videoJobs)
 					.values({
 						appId: input.appId,
 						status: "pending",
-						generationParams: hook as unknown as Record<string, unknown>,
+						generationParams: payload as unknown as Record<string, unknown>,
 					})
 					.returning();
 
 				try {
-					const res = await fetch(`${env.VIDEO_SERVER_URL}/api/generate`, {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify(hook),
-					});
-
-					if (!res.ok) {
-						throw new Error(`Video server returned ${res.status}`);
-					}
-
-					const { jobId } = (await res.json()) as { jobId: string };
+					const jobId = await scheduleVideo(payload);
 
 					await ctx.db
 						.update(videoJobs)
 						.set({ status: "running", videoServerJobId: jobId })
 						.where(eq(videoJobs.id, job.id));
 
-					created.push({ dbId: job.id, videoServerJobId: jobId, hook });
+					created.push({ dbId: job.id, videoServerJobId: jobId });
 				} catch (err) {
 					await ctx.db
 						.update(videoJobs)
@@ -150,6 +187,7 @@ export const videoGenerationRouter = router({
 							error: err instanceof Error ? err.message : String(err),
 						})
 						.where(eq(videoJobs.id, job.id));
+					created.push({ dbId: job.id, videoServerJobId: null });
 				}
 			}
 
@@ -162,10 +200,27 @@ export const videoGenerationRouter = router({
 	list: protectedProcedure
 		.input(z.object({ appId: z.string().uuid() }))
 		.query(async ({ ctx, input }) => {
-			return ctx.db
-				.select()
+			return await ctx.db
+				.select({
+					id: videoJobs.id,
+					appId: videoJobs.appId,
+					status: videoJobs.status,
+					generationParams: videoJobs.generationParams,
+					videoServerJobId: videoJobs.videoServerJobId,
+					outputUrl: videoJobs.outputUrl,
+					liked: videoJobs.liked,
+					error: videoJobs.error,
+					createdAt: videoJobs.createdAt,
+					updatedAt: videoJobs.updatedAt,
+				})
 				.from(videoJobs)
-				.where(eq(videoJobs.appId, input.appId))
+				.innerJoin(apps, eq(videoJobs.appId, apps.id))
+				.where(
+					and(
+						eq(videoJobs.appId, input.appId),
+						eq(apps.clerkUserId, ctx.clerkUserId),
+					),
+				)
 				.orderBy(videoJobs.createdAt);
 		}),
 
@@ -173,9 +228,19 @@ export const videoGenerationRouter = router({
 		.input(z.object({ id: z.string().uuid() }))
 		.mutation(async ({ ctx, input }) => {
 			const [job] = await ctx.db
-				.select()
+				.select({
+					id: videoJobs.id,
+					status: videoJobs.status,
+					videoServerJobId: videoJobs.videoServerJobId,
+					outputUrl: videoJobs.outputUrl,
+					error: videoJobs.error,
+					liked: videoJobs.liked,
+				})
 				.from(videoJobs)
-				.where(eq(videoJobs.id, input.id));
+				.innerJoin(apps, eq(videoJobs.appId, apps.id))
+				.where(
+					and(eq(videoJobs.id, input.id), eq(apps.clerkUserId, ctx.clerkUserId)),
+				);
 
 			if (!job) {
 				throw new TRPCError({ code: "NOT_FOUND", message: "Job not found" });
@@ -198,26 +263,27 @@ export const videoGenerationRouter = router({
 								error: "Video server lost this job (restarted?)",
 							})
 							.where(eq(videoJobs.id, job.id));
-						return {
+						return toPreviewStatus({
 							...job,
 							status: "failed",
 							error: "Video server lost this job",
-						};
+						});
 					}
 
 					if (res.ok) {
-						const remote = (await res.json()) as {
-							status: string;
-							error?: string;
-							outputUrl?: string;
-						};
+						const remote = videoServerStatusResponseSchema.parse(await res.json());
 
 						if (remote.status === "done" && remote.outputUrl) {
 							await ctx.db
 								.update(videoJobs)
 								.set({ status: "done", outputUrl: remote.outputUrl })
 								.where(eq(videoJobs.id, job.id));
-							return { ...job, status: "done", outputUrl: remote.outputUrl };
+							return toPreviewStatus({
+								...job,
+								status: "done",
+								outputUrl: remote.outputUrl,
+								error: null,
+							});
 						}
 
 						if (remote.status === "failed") {
@@ -225,15 +291,28 @@ export const videoGenerationRouter = router({
 								.update(videoJobs)
 								.set({ status: "failed", error: remote.error })
 								.where(eq(videoJobs.id, job.id));
-							return { ...job, status: "failed", error: remote.error };
+							return toPreviewStatus({
+								...job,
+								status: "failed",
+								error: remote.error ?? "Video rendering failed",
+							});
+						}
+
+						const remoteStatus = normalizeStatus(remote.status);
+						if (remoteStatus !== normalizeStatus(job.status)) {
+							await ctx.db
+								.update(videoJobs)
+								.set({ status: remoteStatus })
+								.where(eq(videoJobs.id, job.id));
+							return toPreviewStatus({ ...job, status: remoteStatus });
 						}
 					}
 				} catch {
-					// keep current status if video-server is unreachable
+					// Keep current DB status when video-server is temporarily unreachable.
 				}
 			}
 
-			return job;
+			return toPreviewStatus(job);
 		}),
 
 	retry: protectedProcedure
@@ -263,19 +342,15 @@ export const videoGenerationRouter = router({
 				});
 			}
 
-			const hook = job.generationParams as Hook;
-
-			const res = await fetch(`${env.VIDEO_SERVER_URL}/api/generate`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(hook),
-			});
-
-			if (!res.ok) {
-				throw new Error(`Video server returned ${res.status}`);
+			const payload = previewPayloadSchema.safeParse(job.generationParams);
+			if (!payload.success) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Stored generation params are invalid",
+				});
 			}
 
-			const { jobId } = (await res.json()) as { jobId: string };
+			const jobId = await scheduleVideo(payload.data);
 
 			const [updated] = await ctx.db
 				.update(videoJobs)
@@ -295,6 +370,27 @@ export const videoGenerationRouter = router({
 	setPreference: protectedProcedure
 		.input(z.object({ id: z.string().uuid(), liked: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
+			const [existing] = await ctx.db
+				.select({
+					id: videoJobs.id,
+					status: videoJobs.status,
+				})
+				.from(videoJobs)
+				.innerJoin(apps, eq(videoJobs.appId, apps.id))
+				.where(
+					and(eq(videoJobs.id, input.id), eq(apps.clerkUserId, ctx.clerkUserId)),
+				);
+
+			if (!existing) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Job not found" });
+			}
+			if (existing.status !== "done") {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Only completed videos can be selected",
+				});
+			}
+
 			const [job] = await ctx.db
 				.update(videoJobs)
 				.set({ liked: input.liked })
@@ -333,8 +429,16 @@ export const videoGenerationRouter = router({
 						eq(videoJobs.appId, input.appId),
 						eq(videoJobs.liked, true),
 						eq(videoJobs.status, "done"),
+						isNotNull(videoJobs.outputUrl),
 					),
 				);
+
+			if (selected.length === 0) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Select at least one completed video",
+				});
+			}
 
 			const fineTunePreference = selected.map((s) => ({
 				params: s.generationParams,

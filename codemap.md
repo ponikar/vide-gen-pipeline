@@ -74,8 +74,74 @@ Single source of truth for env vars: root .env
 - Hono apps (video-server, agent-worker) load root + local via: tsx watch --env-file=../../.env --env-file=.env
 - Root scripts: dev:next, dev:video, dev:agent
 
+Fixed
+- Dashboard UI collapse (commit e225424):
+  - Removed unlayered `* { margin: 0; padding: 0 }` from globals.css (overrode Tailwind padding/margin utilities via cascade layer precedence)
+  - Scoped landing page `nav { position: fixed }` → `#nav` to prevent breaking dashboard sidebar's `<nav>`
+  - Added missing `}` and fixed `if (isYes)` indentation in onboard/page.tsx (from scrape feature commit)
+
+Recent Changes: Agent-worker Refactoring
+- apps/agent-worker/src/ai.ts — Replaced `ai` + `@ai-sdk/google` with raw `@google/generative-ai` SDK (provider version pinned to 3.1.0, `ai` was on 4.x — incompatible). Uses `GoogleGenerativeAI` directly. Exports: `learnFromHistory()`, `generateScript()`, `generateHooks()`, `generateCaptions()`.
+- apps/agent-worker/src/orchestrator.ts — Expanded from 5 to 9 phases: research → enroll → script → hooks → render → caption → publish → fetch_stats → done. Uses `appProfile` from `scraped_info` for AI context. Background tasks via `c.executionCtx.waitUntil()`.
+- apps/agent-worker/src/skills.ts — New file: loads AI skill context from prompts/skills*.md. Reads all `prompts/skills-*.md` files and prepends to system prompts.
+- apps/agent-worker/src/db.ts — Fixed user query (was querying users table which doesn't exist on this DB; now uses clerkUserId directly from apps table).
+- apps/web-app/src/db/migrations/0005_*.sql — Added `app_profile` JSONB column to apps table (applied).
+
+Recent Changes: Rich App Scraping (Migration 0006)
+- apps/agent-worker/src/scraper.ts — Added `ScrapedInfo` extract: title, description, category, targetAudience, tone, contentFormat, visualStyle, brandColors, keyFeatures, appStoreUrl. Extracts from scraped HTML meta tags + structured data.
+- apps/web-app/src/db/migrations/0006_scraped_info.sql — ADD COLUMN scraped_info JSONB to apps (applied).
+- apps/web-app/src/app/dashboard/[appId]/page.tsx — Onboarding UI uses new fields: appProfile (editable description, target audience, tone), scrapedInfo (read-only), branding (colors + logomark).
+
+Recent Changes: Calendar & Analytics Feature
+- Schema: posts table now has `published_at`, `views`, `likes`, `comments`, `shares`, `reach` columns with defaults (0 for ints, NULL for reach).
+- apps/web-app/src/db/migrations/0007_calendar_analytics.sql — ALTER TABLE posts ADD COLUMN x 6 (applied).
+- apps/agent-worker/src/orchestrator.ts — INSERT now passes `published_at` and new stat columns (defaults 0).
+- apps/tiktok/client.ts — Added `getVideoStats()` method + `VideoStats` type (viewCount, likeCount, commentCount, shareCount). TikTok OAuth scope now includes `video.publish` + `video.upload` + `user.info.basic` + `user.info.stats`.
+- apps/web-app/src/server/api/routers/analytics.ts — New tRPC router: `getCalendar` (monthly calendar data with aggregated per-day stats, post list, cron schedule info), `refreshStats` (triggers agent-worker /refresh-stats).
+- apps/web-app/src/server/api/root.ts — Added `analyticsRouter`.
+- apps/web-app/src/app/dashboard/[appId]/analytics/page.tsx — Calendar UI: month grid with navigation, day cells colored by view count, click-to-expand day detail, month summary bar, refresh button.
+- apps/web-app/src/app/dashboard/[appId]/page.tsx — Added "Analytics" nav link next to app header.
+
+Onboarding Chat Fix (2026-06-26)
+- Replaced the broken JSON-response onboarding flow with natural-language tRPC chat plus AI SDK tool calling. `apps/web-app/src/server/api/routers/onboarding.ts` exposes a `scrapeUrl` tool; the model decides whether to call it based on the user's message. There is no `JSON_PROMPT`, `responseSchema`, or model-text JSON parsing.
+- `apps/web-app/src/app/dashboard/onboard/page.tsx` no longer blindly calls scrape on the first user message. It sends chat history to `api.onboarding.chat`, renders only `reply`, and shows a create action only when the tool returns structured `scrapedInfo`.
+- `apps/web-app/src/server/api/routers/apps.ts` still uses AI SDK v6 structured output via `generateText({ output: Output.object(...) })` for direct `app.scrapeUrl`. The onboarding tool uses the same structured extraction internally after the model chooses the tool.
+- Restored `onboarding` router registration in `apps/web-app/src/server/api/root.ts`.
+- Verification: `npm run typecheck` in `apps/web-app` reports no onboarding errors. It still fails on the known unrelated `apps/web-app/src/components/landing/LandingPage.tsx` `clientX/clientY` Event typing errors.
+- Files modified in this iteration: `apps/web-app/src/app/dashboard/onboard/page.tsx`, `apps/web-app/src/server/api/routers/onboarding.ts`, `apps/web-app/src/server/api/routers/apps.ts`, `apps/web-app/src/server/api/root.ts`, `codemap.md`.
+
+Onboarding Tool-Call Diagnostics (2026-06-26)
+- Added focused server logs in `apps/web-app/src/server/api/routers/onboarding.ts` for request start, latest user preview, `scrapeUrl` tool execution, fetch status/content type/body length, readable text length/preview, structured extraction success/failure, AI SDK step/tool counts, and final response shape.
+- This is diagnostics-only; chat behavior and UI rendering were not changed.
+- Verification: `npm run typecheck` in `apps/web-app` has no onboarding errors. It still fails only on the known unrelated `apps/web-app/src/components/landing/LandingPage.tsx` `clientX/clientY` Event typing errors.
+- Files modified in this iteration: `apps/web-app/src/server/api/routers/onboarding.ts`, `codemap.md`.
+
+Onboarding Scrape Extraction Fix (2026-06-26)
+- Root cause from diagnostics: MiniMax did call `scrapeUrl`, but `generateText({ output: Output.object(...) })` failed with "No object generated: could not parse the response." Tool calling was working; structured extraction was the broken layer.
+- Added `apps/web-app/src/server/app-scraper.ts` as the shared scrape/extract helper. It avoids LLM JSON/object extraction for scraped data, uses Apple lookup API for App Store URLs, and uses deterministic HTML title/meta/body extraction for normal websites.
+- Updated `apps/web-app/src/server/api/routers/onboarding.ts` so the AI SDK tool still decides when scraping is needed, but the tool execution now calls the shared deterministic scraper and keeps the diagnostic logs.
+- Updated `apps/web-app/src/server/api/routers/apps.ts` so the direct `app.scrapeUrl` endpoint uses the same helper instead of keeping the duplicate `Output.object` path.
+- Verification: direct helper smoke tests passed for `https://apps.apple.com/au/app/malko-better-sleep-appblocker/id6762987084` (`source: app-store-lookup`, name `Malko: Better sleep appblocker`) and `https://aifantasy.ponikar.com` (`source: html-metadata`, name `AI Chat Fantasy`). `npm run typecheck` in `apps/web-app` still fails only on the known unrelated `LandingPage.tsx` `clientX/clientY` Event typing errors.
+- Files modified in this iteration: `apps/web-app/src/server/app-scraper.ts`, `apps/web-app/src/server/api/routers/onboarding.ts`, `apps/web-app/src/server/api/routers/apps.ts`, `codemap.md`.
+
+Node Worker Compatibility Fix (2026-06-26)
+- Fixed `apps/agent-worker/src/index.ts` to dispatch the pipeline with a plain Node background promise instead of `c.executionCtx.waitUntil()`. Hono documents `executionCtx` as Cloudflare Workers-specific, so it is not the correct API for `@hono/node-server`.
+- Updated `apps/agent-worker/package.json` and `apps/video-server/package.json` to load app-local env files with `--env-file-if-exists=.env`. Root `.env` remains required; per-app env files are documented as optional overrides, and `apps/agent-worker/.env` does not exist.
+- Verification: both app typechecks pass. `agent-worker` starts under Node and `POST /api/schedules` returns the expected validation error for `{}`. `video-server` starts under Node and `/api/health` returns `{"status":"ok"}`. Initial sandboxed `tsx` startup failed on a local IPC permission issue, so runtime startup was verified outside the sandbox.
+- Files modified in this iteration: `apps/agent-worker/src/index.ts`, `apps/agent-worker/package.json`, `apps/video-server/package.json`, `codemap.md`.
+
+Onboarding Preview Video Generation via Agent Worker (2026-06-26)
+- Added `apps/agent-worker/src/fine-tune.ts` to generate onboarding preview render payloads from app name, description, and scraped info only. It uses the existing research/hooks/script prompt stack with an explicit "new app, no performance history yet" context and returns render-ready payloads plus hook/script metadata.
+- Added `POST /api/onboarding/preview-payloads` in `apps/agent-worker/src/index.ts`. It validates `{ app_id, count: 3 | 4 }` and returns `{ payloads }`; it does not render videos, publish, schedule cron, or read historical posts.
+- Replaced the duplicate web-app AI generation in `apps/web-app/src/server/api/routers/videoGeneration.ts`. The web app now verifies Clerk app ownership/fine-tune state, calls the agent-worker for preview payloads, creates `video_jobs`, schedules video-server renders server-side, stores `videoServerJobId` and `generationParams`, proxies status polling server-side, retries from stored params, and saves only selected completed jobs with output URLs.
+- Updated `apps/web-app/src/app/dashboard/[appId]/page.tsx` so preview jobs can have `videoServerJobId: null` when video-server scheduling fails. Removed unused public `NEXT_PUBLIC_VIDEO_SERVER_URL` from `apps/web-app/src/env.ts` so browser code has no video-server URL boundary.
+- Verification: `npm run typecheck` passes in `apps/agent-worker`. `npm run typecheck` in `apps/web-app` still fails only on the known unrelated `apps/web-app/src/components/landing/LandingPage.tsx` `clientX/clientY` Event typing errors. `git diff --check` passes. Source search confirms browser code no longer references `NEXT_PUBLIC_VIDEO_SERVER_URL`, `/api/generate`, or `/api/status`; only server-side router/orchestrator code calls video-server endpoints.
+- Files modified in this iteration: `apps/agent-worker/src/fine-tune.ts`, `apps/agent-worker/src/index.ts`, `apps/web-app/src/server/api/routers/videoGeneration.ts`, `apps/web-app/src/app/dashboard/[appId]/page.tsx`, `apps/web-app/src/env.ts`, `codemap.md`.
+
 Known Issues
 - LandingPage.tsx has 2 pre-existing TS errors (clientX/clientY on untyped Event)
+- Migrations 0006 and 0007 were registered in the journal but never run against Neon DB.
+  Applied manually via psql on 2026-06-25.
 - Video-server is in-memory — restart loses queued jobs (handled by getStatus marking DB jobs as failed)
 - ffmpeg + ffprobe must be installed on video-server host
 - VIDEO_SERVER_URL=http://localhost:3001 in web-app .env

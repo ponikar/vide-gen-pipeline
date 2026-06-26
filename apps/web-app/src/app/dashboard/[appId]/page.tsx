@@ -2,6 +2,7 @@
 
 import {
 	ArrowLeft,
+	BarChart3,
 	Check,
 	Clock,
 	Copy,
@@ -78,14 +79,14 @@ function ConnectedAccountsSection({ appId }: { appId: string }) {
 							>
 								<Unlink className="h-4 w-4" />
 							</button>
-						) : (
+						) : !connectedAccount ? (
 							<Link
 								href={instagramLink}
 								className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
 							>
 								Connect
 							</Link>
-						)}
+						) : null}
 					</div>
 
 					<div
@@ -115,14 +116,14 @@ function ConnectedAccountsSection({ appId }: { appId: string }) {
 							>
 								<Unlink className="h-4 w-4" />
 							</button>
-						) : (
+						) : !connectedAccount ? (
 							<Link
 								href={tiktokLink}
 								className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
 							>
 								Connect
 							</Link>
-						)}
+						) : null}
 					</div>
 				</div>
 			)}
@@ -132,7 +133,7 @@ function ConnectedAccountsSection({ appId }: { appId: string }) {
 
 type VideoJob = {
 	dbId: string;
-	videoServerJobId: string;
+	videoServerJobId: string | null;
 	status: string;
 	outputUrl: string | null;
 	liked: boolean | null;
@@ -178,7 +179,7 @@ function VideoFineTuneSection({ appId }: { appId: string }) {
 			setVideos(
 				existingJobs.map((j) => ({
 					dbId: j.id,
-					videoServerJobId: j.videoServerJobId ?? "",
+					videoServerJobId: j.videoServerJobId,
 					status: j.status,
 					outputUrl: j.outputUrl,
 					liked: j.liked,
@@ -655,6 +656,15 @@ export default function AppDetailPage() {
 						<Trash2 className="h-4 w-4" />
 						Delete
 					</button>
+				</div>
+				<div className="mt-4 flex gap-2">
+					<Link
+						href={`/dashboard/${appId}/analytics`}
+						className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+					>
+						<BarChart3 className="h-3.5 w-3.5" />
+						Analytics
+					</Link>
 				</div>
 			</div>
 

@@ -6,4 +6,5 @@ export type {
 	PublishStatus,
 	TikTokProfile,
 	UploadResponse,
+	VideoStats,
 } from "./types.js";
