@@ -429,6 +429,7 @@ function ScheduleForm({ appId }: { appId: string }) {
 	const [copied, setCopied] = useState<string | null>(null);
 
 	const { data: existing } = api.cronSchedule.list.useQuery({ appId });
+	const { data: accounts } = api.connectedAccount.listByApp.useQuery({ appId });
 
 	const createSchedule = api.cronSchedule.create.useMutation({
 		onSuccess: (data) => {
@@ -440,6 +441,14 @@ function ScheduleForm({ appId }: { appId: string }) {
 			utils.cronSchedule.list.invalidate({ appId });
 		},
 	});
+
+	const connectedProviders = new Set(
+		(accounts ?? []).map((a) => a.provider),
+	);
+	const missingPlatforms = formPlatforms.filter(
+		(p) => !connectedProviders.has(p),
+	);
+	const canSchedule = missingPlatforms.length === 0;
 
 	function togglePlatform(p: string) {
 		setFormPlatforms((prev) =>
@@ -543,6 +552,22 @@ function ScheduleForm({ appId }: { appId: string }) {
 				</div>
 			</div>
 
+			{!canSchedule && (
+				<p className="text-xs text-destructive">
+					Connect your{" "}
+					{missingPlatforms
+						.map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+						.join(" and ")}{" "}
+					account{missingPlatforms.length > 1 ? "s" : ""} above before scheduling.
+				</p>
+			)}
+
+			{createSchedule.error && (
+				<p className="text-xs text-destructive">
+					{createSchedule.error.message}
+				</p>
+			)}
+
 			<button
 				onClick={() =>
 					createSchedule.mutate({
@@ -553,7 +578,7 @@ function ScheduleForm({ appId }: { appId: string }) {
 						socialPlatforms: formPlatforms.length > 0 ? formPlatforms : undefined,
 					})
 				}
-				disabled={createSchedule.isPending}
+				disabled={!canSchedule || createSchedule.isPending}
 				className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
 			>
 				{createSchedule.isPending ? "Setting up..." : "Start Auto-Posting"}

@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { apps, cronSchedules } from "@/db/schema";
+import { apps, connectedAccounts, cronSchedules } from "@/db/schema";
 import { protectedProcedure, router } from "@/server/trpc";
 
 const AGENT_WORKER_URL =
@@ -48,6 +48,31 @@ export const cronScheduleRouter = router({
 					and(eq(apps.id, input.appId), eq(apps.clerkUserId, ctx.clerkUserId)),
 				);
 			if (!app) throw new Error("App not found");
+
+			const platforms = input.socialPlatforms ?? ["instagram", "tiktok"];
+			const accounts = await ctx.db
+				.select({ provider: connectedAccounts.provider })
+				.from(connectedAccounts)
+				.where(
+					and(
+						eq(connectedAccounts.appId, input.appId),
+						inArray(connectedAccounts.provider, platforms),
+					),
+				);
+			const connectedProviders = new Set(
+				accounts.map((a) => a.provider),
+			);
+			const missing = platforms.filter(
+				(p) => !connectedProviders.has(p),
+			);
+			if (missing.length > 0) {
+				const list = missing
+					.map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+					.join(" and ");
+				throw new Error(
+					`Connect your ${list} account${missing.length > 1 ? "s" : ""} before scheduling.`,
+				);
+			}
 
 			const secret = generateSecret();
 			const id = randomUUID();

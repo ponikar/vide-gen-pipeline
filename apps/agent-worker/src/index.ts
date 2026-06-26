@@ -43,12 +43,13 @@ function crontabRead(): string {
 }
 
 function crontabWrite(content: string) {
+	const withNewline = content.endsWith("\n") ? content : `${content}\n`;
 	try {
 		const tmp = `/tmp/gold-fish-cron-${Date.now()}`;
-		writeFileSync(tmp, content, "utf-8");
+		writeFileSync(tmp, withNewline, "utf-8");
 		execSync(`crontab "${tmp}"`, { timeout: 5000 });
 	} catch {
-		writeFileSync(FALLBACK_FILE, content, "utf-8");
+		writeFileSync(FALLBACK_FILE, withNewline, "utf-8");
 	}
 }
 

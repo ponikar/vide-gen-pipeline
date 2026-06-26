@@ -185,6 +185,22 @@ Kokoro Model Cache Reliability Fix (2026-06-27)
 - Verification: a genuinely empty `/tmp` cache downloaded the four expected artifacts, including the 92,361,116-byte q8 ONNX model, and three concurrent preload calls completed through one shared initialization in 11.2 seconds. A warm-cache video-server startup waited for preload and then returned `{"status":"ok"}` from `/api/health`. The forced Ctrl-C used to stop that smoke process triggered an ONNX native shutdown mutex abort after successful verification; production PM2 was not changed. Video-server and root typechecks, all 17 tests, frozen offline lockfile verification, and `git diff --check` pass. An initial ESM environment configuration was rejected during testing because it did not configure Kokoro's CommonJS Transformers instance.
 - Files modified in this iteration: `src/tts.ts`, `apps/video-server/src/index.ts`, `apps/video-server/src/queue.ts`, `apps/video-server/.env.example`, `package.json`, `pnpm-lock.yaml`, `codemap.md`.
 
+Agent Worker Prompt Injection Diagnosis (2026-06-27)
+- Confirmed that `prompts/hook.md` and `prompts/video.md` are read by `apps/agent-worker/src/skills.ts` but their `hookMd` and `videoMd` values are never referenced. `prompts/audio.md` is not loaded anywhere. `prompts/videos-context.md` only feeds the unused legacy `getVideoContext()` helper after background selection moved to `video-urls.md`.
+- The model currently receives hardcoded summaries instead: a 1,684-character hook cheat sheet instead of the 31,882-character hook prompt, a separate 502-character dialogue-rules string instead of the 2,381-character natural-speech prompt, a 90-character caption formula, and none of the full video prompt. The AI SDK sends only the explicit `system` and `prompt` strings passed to `generateObject()`.
+- Git history shows the dead Markdown loads and hardcoded summaries were introduced together in commit `05cc5de` (`Agentic pipeline with learning, hook generation, and skill injection`), so this was an incomplete initial integration rather than a later regression. `noUnusedLocals` is not enabled in the worker tsconfig, allowing the orphaned variables to pass typechecking.
+- Recommended correction: inject `hook.md` into research/hook generation, inject `audio.md` plus the relevant dialogue rules into script generation, keep structured `video-urls.md` input for background selection, and do not inject all of `video.md` because much of it is an outdated operational guide rather than model guidance. No runtime code was changed during this diagnosis.
+- Files modified in this iteration: `codemap.md`.
+
+Agent Worker Crontab Newline Fix (2026-06-27)
+- Fixed crontabWrite to ensure content ends with a newline before writing. `crontab` on macOS rejects files that don't end with a trailing newline. Both the direct `crontab` command and the fallback file write now use the normalized content.
+- Files modified in this iteration: `apps/agent-worker/src/index.ts`, `codemap.md`.
+
+Connected Accounts Check Before Scheduling (2026-06-27)
+- Added server-side check in `cronSchedule.create` tRPC mutation: queries `connected_accounts` for the selected platforms on the given app and throws "Connect your Instagram account before scheduling." if any selected platform lacks a connected account.
+- Added client-side check in `ScheduleForm`: queries connected accounts, computes missing platforms, shows a warning message, and disables the "Start Auto-Posting" button until all selected platforms have connected accounts. Mutation errors are also surfaced inline.
+- Files modified in this iteration: `apps/web-app/src/server/api/routers/cronSchedule.ts`, `apps/web-app/src/app/dashboard/[appId]/page.tsx`, `codemap.md`.
+
 Known Issues
 - LandingPage.tsx has 2 pre-existing TS errors (clientX/clientY on untyped Event)
 - Migrations 0006 and 0007 were registered in the journal but never run against Neon DB.
