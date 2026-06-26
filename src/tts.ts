@@ -1,5 +1,6 @@
 import { copyFile, readdir } from "node:fs/promises";
 import { createRequire } from "node:module";
+import os from "node:os";
 import path from "node:path";
 import { generateCloneSegments } from "./cloner.js";
 import { resolveVoice } from "./config.js";
@@ -7,6 +8,10 @@ import { probeDuration } from "./process.js";
 import type { CaptionChunk, GeneratedSegment } from "./types.js";
 
 const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
+const configuredModelCacheDir = process.env.KOKORO_CACHE_DIR?.trim();
+const MODEL_CACHE_DIR =
+	configuredModelCacheDir ||
+	path.join(os.homedir(), ".cache", "gold-fish", "transformers");
 
 const CUSTOM_VOICES_DIR = new URL("../voices/", import.meta.url).pathname;
 
@@ -19,6 +24,12 @@ type KokoroModule = {
 				device: "cpu";
 			},
 		) => Promise<KokoroInstance>;
+	};
+};
+
+type TransformersModule = {
+	env: {
+		cacheDir: string;
 	};
 };
 
@@ -35,6 +46,13 @@ type GeneratedAudio = {
 };
 
 const CLONE_PREFIX = "clone:";
+const require = createRequire(import.meta.url);
+const kokoroRequire = createRequire(require.resolve("kokoro-js"));
+const transformersModule = kokoroRequire(
+	"@huggingface/transformers",
+) as TransformersModule;
+transformersModule.env.cacheDir = MODEL_CACHE_DIR;
+let ttsPromise: Promise<KokoroInstance> | undefined;
 
 export async function generateSpeechSegments(
 	chunks: CaptionChunk[],
@@ -156,8 +174,20 @@ async function generateKokoroSegments(
 	return segments;
 }
 
-async function loadTts(): Promise<KokoroInstance> {
-	const module = (await import("kokoro-js")) as unknown as KokoroModule;
+export async function preloadTts(): Promise<void> {
+	await loadTts();
+}
+
+function loadTts(): Promise<KokoroInstance> {
+	ttsPromise ??= createTts().catch((error: unknown) => {
+		ttsPromise = undefined;
+		throw error;
+	});
+	return ttsPromise;
+}
+
+async function createTts(): Promise<KokoroInstance> {
+	const module = require("kokoro-js") as unknown as KokoroModule;
 	return module.KokoroTTS.from_pretrained(MODEL_ID, {
 		dtype: "q8",
 		device: "cpu",
@@ -178,7 +208,6 @@ async function ensureCustomVoices(tts: KokoroInstance): Promise<Set<string>> {
 
 	if (customNames.length === 0) return new Set();
 
-	const require = createRequire(import.meta.url);
 	const kokoroVoicesDir = path.resolve(
 		path.dirname(require.resolve("kokoro-js")),
 		"..",

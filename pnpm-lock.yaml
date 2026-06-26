@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@huggingface/transformers':
+        specifier: 3.8.1
+        version: 3.8.1
       '@neondatabase/serverless':
         specifier: ^1.1.0
         version: 1.1.0

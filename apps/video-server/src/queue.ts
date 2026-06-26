@@ -65,7 +65,7 @@ export class JobQueue {
 				.catch((err: unknown) => {
 					job.status = "failed";
 					job.error = err instanceof Error ? err.message : String(err);
-					console.error(`[queue] Job ${id} failed:`, job.error);
+					console.error(`[queue] Job ${id} failed:`, err);
 				})
 				.finally(() => {
 					this.running--;

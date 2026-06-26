@@ -1,8 +1,9 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { preloadTts } from "../../../src/tts.js";
 import type { GenerateRequest } from "./pipeline.js";
-import { runPipeline } from "./pipeline.js";
+import { assertSystemDeps, runPipeline } from "./pipeline.js";
 import { JobQueue } from "./queue.js";
 
 const app = new Hono();
@@ -73,6 +74,9 @@ app.get("/api/output/:jobId", (c) => {
 });
 
 const PORT = Number(process.env.PORT ?? 3001);
+
+await assertSystemDeps();
+await preloadTts();
 
 console.log(`video-server listening on http://localhost:${PORT}`);
 
