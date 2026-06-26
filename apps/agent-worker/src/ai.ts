@@ -1,4 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { google } from "@ai-sdk/google";
+import { generateObject } from "ai";
+import type { LanguageModel } from "ai";
+import { minimax } from "vercel-minimax-ai-provider";
 import { z } from "zod";
 import {
 	getCaptionFormula,
@@ -6,28 +9,31 @@ import {
 	getHookCheatSheet,
 } from "./skills.js";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? "");
-
-const MODEL = "gemini-2.0-flash-lite";
+function getModel(): LanguageModel {
+	const provider = process.env.AI_PROVIDER ?? "google";
+	switch (provider) {
+		case "google":
+			return google("gemini-2.0-flash-lite");
+		case "minimax":
+			return minimax("MiniMax-M2");
+		default:
+			return google("gemini-2.0-flash-lite");
+	}
+}
 
 async function generateStructured<T>(
 	schema: z.ZodType<T>,
 	system: string,
 	prompt: string,
 ): Promise<T> {
-	const model = genAI.getGenerativeModel({
-		model: MODEL,
-		systemInstruction: system,
-		generationConfig: {
-			responseMimeType: "application/json",
-			temperature: 0.7,
-		},
+	const { object } = await generateObject({
+		model: getModel(),
+		system,
+		prompt,
+		schema,
+		temperature: 0.7,
 	});
-
-	const result = await model.generateContent(prompt);
-	const text = result.response.text();
-	const parsed = JSON.parse(text);
-	return schema.parse(parsed);
+	return object;
 }
 
 const learningSchema = z.object({

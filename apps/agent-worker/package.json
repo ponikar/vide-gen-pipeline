@@ -9,8 +9,10 @@
 		"typecheck": "tsc --noEmit"
 	},
     "dependencies": {
-        "@google/generative-ai": "^0.24.1",
+        "@ai-sdk/google": "^3.0.83",
         "@hono/node-server": "^1.19.14",
+        "ai": "^6.0.208",
+        "vercel-minimax-ai-provider": "^0.0.2",
         "@neondatabase/serverless": "^1.1.0",
         "hono": "^4.12.26",
         "zod": "^3.25.76"
