@@ -63,16 +63,12 @@ export default function OnboardPage() {
 		{ id: nextId(), role: "bot", content: initialMessage },
 	]);
 	const [input, setInput] = useState("");
-	const [scrapedInfo, setScrapedInfo] = useState<ScrapedInfo | undefined>();
+	const [pendingAppInfo, setPendingAppInfo] = useState<ScrapedInfo | undefined>();
 
 	const chat = api.onboarding.chat.useMutation();
 	const createApp = api.app.create.useMutation({
 		onSuccess: (app) => {
-			setMessages((prev) => [
-				...prev,
-				{ id: nextId(), role: "bot", content: "Your app has been created! Redirecting..." },
-			]);
-			setTimeout(() => router.push(`/dashboard/${app.id}`), 1500);
+			router.push(`/dashboard/${app.id}`);
 		},
 		onError: (err) => {
 			setMessages((prev) => [
@@ -109,10 +105,29 @@ export default function OnboardPage() {
 		try {
 			const result = await chat.mutateAsync({
 				messages: toApiMessages(nextMessages),
+				pendingAppInfo,
 			});
 
+			if (result.confirmedInfo) {
+				setPendingAppInfo(undefined);
+				setMessages((prev) => [
+					...prev,
+					{
+						id: nextId(),
+						role: "bot",
+						content: result.reply || "Creating your app...",
+					},
+				]);
+				createApp.mutate({
+					name: result.confirmedInfo.name,
+					description: result.confirmedInfo.description || undefined,
+					scrapedInfo: result.confirmedInfo,
+				});
+				return;
+			}
+
 			if (result.scrapedInfo) {
-				setScrapedInfo(result.scrapedInfo);
+				setPendingAppInfo(result.scrapedInfo);
 			}
 
 			setMessages((prev) => [
@@ -142,15 +157,6 @@ export default function OnboardPage() {
 			e.preventDefault();
 			handleSend(input);
 		}
-	}
-
-	function createFromScrape() {
-		if (!scrapedInfo || createApp.isPending) return;
-		createApp.mutate({
-			name: scrapedInfo.name,
-			description: scrapedInfo.description || undefined,
-			scrapedInfo,
-		});
 	}
 
 	return (
@@ -207,18 +213,6 @@ export default function OnboardPage() {
 			</div>
 
 			<div className="sticky bottom-0 border-t bg-background pt-4">
-				{scrapedInfo && (
-					<div className="mb-2 flex justify-end">
-						<button
-							type="button"
-							onClick={createFromScrape}
-							disabled={createApp.isPending}
-							className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
-						>
-							Create app from scraped info
-						</button>
-					</div>
-				)}
 				<div className="flex gap-2">
 					<input
 						ref={inputRef}

@@ -138,6 +138,21 @@ Onboarding Preview Video Generation via Agent Worker (2026-06-26)
 - Verification: `npm run typecheck` passes in `apps/agent-worker`. `npm run typecheck` in `apps/web-app` still fails only on the known unrelated `apps/web-app/src/components/landing/LandingPage.tsx` `clientX/clientY` Event typing errors. `git diff --check` passes. Source search confirms browser code no longer references `NEXT_PUBLIC_VIDEO_SERVER_URL`, `/api/generate`, or `/api/status`; only server-side router/orchestrator code calls video-server endpoints.
 - Files modified in this iteration: `apps/agent-worker/src/fine-tune.ts`, `apps/agent-worker/src/index.ts`, `apps/web-app/src/server/api/routers/videoGeneration.ts`, `apps/web-app/src/app/dashboard/[appId]/page.tsx`, `apps/web-app/src/env.ts`, `codemap.md`.
 
+Onboarding Manual Info Tool Calling (2026-06-27)
+- Hardened `apps/web-app/src/server/api/routers/onboarding.ts` so onboarding has two structured paths: `scrapeUrl` for URLs and `refineManualAppInfo` for manually supplied app details.
+- Updated the onboarding system prompt to explicitly tell the AI to analyze user messages, extract manual app facts, sanitize/refine vague wording, and call `refineManualAppInfo` once app name plus core description are available. The manual tool returns the same `ScrapedInfo` shape as scraping, so the existing `api.app.create` path stores it in `apps.scraped_info` without a new DB contract.
+- Added minimal server-side normalization for manual tool input: trim whitespace, truncate long text, dedupe list fields, and validate through the shared `scrapedInfoSchema`.
+- Updated `apps/web-app/src/app/dashboard/onboard/page.tsx` button copy from "Create app from scraped info" to "Create app" because structured info can now come from either scraping or manual chat.
+- Verification: `git diff --check` passes. `npm run typecheck` in `apps/web-app` still fails only on the known unrelated `apps/web-app/src/components/landing/LandingPage.tsx` `clientX/clientY` Event typing errors.
+- Files modified in this iteration: `apps/web-app/src/server/api/routers/onboarding.ts`, `apps/web-app/src/app/dashboard/onboard/page.tsx`, `codemap.md`.
+
+Onboarding Confirmation Auto-Create (2026-06-27)
+- Extended `apps/web-app/src/server/api/routers/onboarding.ts` so chat requests can include a pending `ScrapedInfo` profile. The system prompt now tells the AI to call `confirmAppInfo` when the latest user message approves the pending profile, or `refineManualAppInfo` again when the user provides corrections.
+- Added `confirmedInfo` to the onboarding chat response. `scrapedInfo` still means "profile ready for review"; `confirmedInfo` means "create this app now". The router still does not write apps directly, keeping DB creation in the existing `api.app.create` path.
+- Updated `apps/web-app/src/app/dashboard/onboard/page.tsx` to store pending app info, send it on each chat turn, remove the manual create button, call `api.app.create` automatically when `confirmedInfo` is returned, and redirect immediately to `/dashboard/:appId` after creation succeeds.
+- Verification: `git diff --check` passes. `npm run typecheck` in `apps/web-app` still fails only on the known unrelated `apps/web-app/src/components/landing/LandingPage.tsx` `clientX/clientY` Event typing errors.
+- Files modified in this iteration: `apps/web-app/src/server/api/routers/onboarding.ts`, `apps/web-app/src/app/dashboard/onboard/page.tsx`, `codemap.md`.
+
 Known Issues
 - LandingPage.tsx has 2 pre-existing TS errors (clientX/clientY on untyped Event)
 - Migrations 0006 and 0007 were registered in the journal but never run against Neon DB.
