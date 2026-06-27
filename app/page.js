@@ -52,12 +52,47 @@ export default function Home() {
       <main id="top">
         {/* HERO */}
         <section className="hero" id="hero">
-          <div className="hero-images" id="heroImages"></div>
-          <div className="hero-center">
-            <div className="label center"><span className="dot"></span><span className="label-text">AI Content Engine for App Developers</span></div>
-            <h1 className="hero-title" id="heroTitle">You build the app. We handle the content.</h1>
-            <p className="hero-sub" id="heroSub">Vid-Gen-Scale automatically scripts, creates, and posts brainrot videos to TikTok and Instagram. Zero effort from you.</p>
-            <a href="#footer" className="btn btn-light hero-cta">Get Early Access — Free</a>
+          <div className="hero-grid">
+            <div className="hero-left">
+              <div className="hero-badge"><span className="dot"></span>AI Content Engine for App Developers</div>
+              <h1 className="hero-title">
+                <span className="ht-1">You build the app.</span>{" "}
+                <span className="ht-2">We handle the content.</span>
+              </h1>
+              <p className="hero-sub">Vid-Gen-Scale automatically scripts, creates, and posts brainrot videos to TikTok and Instagram. Zero effort from you.</p>
+              <div className="hero-actions">
+                <a href="#footer" className="btn btn-light hero-cta">Get Early Access — Free <span className="arr">→</span></a>
+                <a href="#approach" className="btn btn-ghost">See how it works <span className="arr">↓</span></a>
+              </div>
+            </div>
+
+            <div className="hero-right">
+              <div className="phone">
+                <div className="phone-notch"></div>
+                <video className="phone-video" src="/videos/Hero-web.mp4" autoPlay muted loop playsInline preload="metadata"></video>
+                <div className="phone-ui">
+                  <div className="tt-rail">
+                    <div className="tt-btn">
+                      <svg viewBox="0 0 24 24" width="24" height="24" fill="#fff" aria-hidden="true"><path d="M12 21s-7-4.55-9.33-8.2C1.18 9.92 2.55 6.5 5.8 6.5c1.95 0 3.18 1.12 4.0 2.27.82-1.15 2.05-2.27 4.0-2.27 3.25 0 4.62 3.42 3.13 6.3C19 16.45 12 21 12 21z"/></svg>
+                      <small>24.2k</small>
+                    </div>
+                    <div className="tt-btn">
+                      <svg viewBox="0 0 24 24" width="24" height="24" fill="#fff" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9l-4 4V5a1 1 0 0 1 1-1z"/></svg>
+                      <small>1.8k</small>
+                    </div>
+                    <div className="tt-btn">
+                      <svg viewBox="0 0 24 24" width="24" height="24" fill="#fff" aria-hidden="true"><path d="M3 11l18-8-8 18-2.5-7.5L3 11z"/></svg>
+                      <small>Share</small>
+                    </div>
+                  </div>
+                  <div className="tt-caption">
+                    <div className="tt-user">@vidgenscale</div>
+                    <div className="tt-text">when your app finally finds its audience 🚀 #buildinpublic</div>
+                  </div>
+                </div>
+              </div>
+              <div className="phone-badge"><span className="dot"></span>Auto-posted · TikTok &amp; Instagram</div>
+            </div>
           </div>
         </section>
 
