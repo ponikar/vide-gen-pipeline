@@ -3,7 +3,7 @@ import { appRouter, createTRPCContext } from "@/server";
 import {
 	getRequestId,
 	REQUEST_ID_HEADER,
-} from "../../../../../../../src/logger.js";
+} from "../../../../../../../src/logger";
 
 const handler = async (req: Request) => {
 	const requestId = getRequestId(req.headers);

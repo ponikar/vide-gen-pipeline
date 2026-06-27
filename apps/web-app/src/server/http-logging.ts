@@ -4,7 +4,7 @@ import {
 	getRequestId,
 	type Logger,
 	REQUEST_ID_HEADER,
-} from "../../../../src/logger.js";
+} from "../../../../src/logger";
 
 export type RouteContext = {
 	logger: Logger;

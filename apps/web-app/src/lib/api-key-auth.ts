@@ -2,7 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { apiKeys } from "@/db/schema";
 import { sha256 } from "./crypto";
-import { createLogger, getRequestId } from "../../../../src/logger.js";
+import { createLogger, getRequestId } from "../../../../src/logger";
 
 const logger = createLogger("web", { component: "api-key-auth" });
 

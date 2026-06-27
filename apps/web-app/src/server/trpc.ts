@@ -7,7 +7,7 @@ import {
 	createLogger,
 	elapsedMs,
 	getRequestId,
-} from "../../../../src/logger.js";
+} from "../../../../src/logger";
 
 const logger = createLogger("web");
 

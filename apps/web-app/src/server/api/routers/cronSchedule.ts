@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { apps, connectedAccounts, cronSchedules } from "@/db/schema";
 import { protectedProcedure, router } from "@/server/trpc";
-import { REQUEST_ID_HEADER } from "../../../../../../src/logger.js";
+import { REQUEST_ID_HEADER } from "../../../../../../src/logger";
 
 const AGENT_WORKER_URL =
 	process.env.AGENT_WORKER ?? "http://localhost:3002";
