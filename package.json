@@ -6,6 +6,7 @@
   "workspaces": [
     "apps/*"
   ],
+  "packageManager": "pnpm@9.15.9",
   "scripts": {
     "generate": "tsx src/cli.ts",
     "connect": "tsx scripts/connect.ts",
