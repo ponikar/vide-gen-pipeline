@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { withVercelLogging } from '../../src/vercel-logging.js';
+import { withVercelLogging } from '../../../../src/vercel-logging.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,

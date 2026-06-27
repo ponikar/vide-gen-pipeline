@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { db, schema } from '../../../src/db/index.js';
+import { db, schema } from '../../../../../src/db/index.js';
 import { eq } from 'drizzle-orm';
-import { withVercelLogging } from '../../../src/vercel-logging.js';
+import { withVercelLogging } from '../../../../../src/vercel-logging.js';
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();

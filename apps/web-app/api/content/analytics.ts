@@ -1,13 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getProvider } from '../../src/social/registry.js';
-import { db, schema } from '../../src/db/index.js';
+import { getProvider } from '../../../../src/social/registry.js';
+import { db, schema } from '../../../../src/db/index.js';
 import { eq } from 'drizzle-orm';
-import { InstagramClient } from '../../src/instagram/client.js';
+import { InstagramClient } from '../../../../src/instagram/client.js';
 import {
   getAccountInsights,
   getRecentMedia,
-} from '../../src/instagram/analytics.js';
-import { withVercelLogging } from '../../src/vercel-logging.js';
+} from '../../../../src/instagram/analytics.js';
+import { withVercelLogging } from '../../../../src/vercel-logging.js';
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -31,7 +31,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (mediaId) {
       try {
-        const { getMediaInsights } = await import('../../src/instagram/analytics.js');
+        const { getMediaInsights } = await import('../../../../src/instagram/analytics.js');
         const [insights, media] = await Promise.all([
           getMediaInsights(client, mediaId),
           client.get<{ id: string; permalink: string; media_type: string; timestamp: string; caption?: string }>(

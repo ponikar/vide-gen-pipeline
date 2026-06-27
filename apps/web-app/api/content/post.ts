@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import busboy from 'busboy';
-import { getProvider } from '../../src/social/registry.js';
-import { db, schema } from '../../src/db/index.js';
+import { getProvider } from '../../../../src/social/registry.js';
+import { db, schema } from '../../../../src/db/index.js';
 import { eq } from 'drizzle-orm';
-import { withVercelLogging } from '../../src/vercel-logging.js';
+import { withVercelLogging } from '../../../../src/vercel-logging.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
