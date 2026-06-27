@@ -19,7 +19,14 @@ type TokenResponse = {
 	refresh_token: string;
 	refresh_expires_in: number;
 	open_id: string;
+	scope: string;
 	token_type: string;
+};
+
+type TokenErrorResponse = {
+	error: string;
+	error_description?: string;
+	log_id?: string;
 };
 
 function generateCodeVerifier(): string {
@@ -93,23 +100,20 @@ export async function exchangeCode(params: {
 		throw new Error(`TikTok token exchange failed: ${text}`);
 	}
 
-	const data = (await res.json()) as {
-		data?: TokenResponse;
-		error?: { code: string; message: string };
-	};
+	const data = (await res.json()) as TokenResponse | TokenErrorResponse;
 
-	if (data.error) {
+	if ("error" in data) {
 		throw new Error(
-			`TikTok token exchange error: ${data.error.code} - ${data.error.message}`,
+			`TikTok token exchange error: ${data.error} - ${data.error_description ?? "Unknown error"}`,
 		);
 	}
 
-	return data.data!;
+	return data;
 }
 
 export async function refreshToken(params: {
 	refreshToken: string;
-}): Promise<TokenResponse> {
+}): Promise<TokenResponse | null> {
 	const creds = tikTokCreds();
 	const body = new URLSearchParams();
 	body.set("client_key", creds.appId);
@@ -126,20 +130,23 @@ export async function refreshToken(params: {
 		body,
 	});
 
-	if (!res.ok) return null as unknown as TokenResponse;
+	if (!res.ok) return null;
 
-	const data = (await res.json()) as {
-		data?: TokenResponse;
-		error?: { code: string; message: string };
-	};
+	const data = (await res.json()) as TokenResponse | TokenErrorResponse;
 
-	if (data.error || !data.data) return null as unknown as TokenResponse;
+	if ("error" in data) return null;
 
-	return data.data;
+	return data;
 }
 
 export async function getProfile(accessToken: string): Promise<TikTokProfile> {
-	const res = await fetch(`${API_BASE}/user/info/`, {
+	const url = new URL(`${API_BASE}/user/info/`);
+	url.searchParams.set(
+		"fields",
+		"open_id,union_id,display_name,avatar_url",
+	);
+
+	const res = await fetch(url, {
 		method: "GET",
 		headers: {
 			Authorization: `Bearer ${accessToken}`,
@@ -163,7 +170,7 @@ export async function getProfile(accessToken: string): Promise<TikTokProfile> {
 		error?: { code: string; message: string };
 	};
 
-	if (data.error) {
+	if (data.error && data.error.code !== "ok") {
 		throw new Error(
 			`TikTok profile error: ${data.error.code} - ${data.error.message}`,
 		);

@@ -13,3 +13,17 @@
   `src/components/landing/LandingPage.tsx:162-163` because `clientX` and
   `clientY` are accessed on `Event`. No errors were reported in the modified
   TikTok OAuth files.
+
+## 2026-06-28 — TikTok OAuth response handling
+
+- Fixed access-token and refresh-token parsing to match TikTok OAuth v2's
+  top-level response fields instead of incorrectly reading a `data` wrapper.
+- Added TikTok's required profile fields to the user-info request and accepted
+  the API's successful `error.code: "ok"` envelope.
+- Files modified:
+  - `src/lib/tiktok/auth.ts`
+  - `codemap.md`
+- Verification: `git diff --check` passed. `npm run typecheck` remains blocked
+  only by the existing `Event.clientX/clientY` errors in
+  `src/components/landing/LandingPage.tsx:162-163`; no errors were reported in
+  the modified TikTok OAuth code.
