@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { env } from "@/env";
 
 const AUTH_BASE = "https://www.tiktok.com";
@@ -19,29 +20,57 @@ type TokenResponse = {
 	token_type: string;
 };
 
+function generateCodeVerifier(): string {
+	return crypto.randomBytes(32)
+		.toString("base64url")
+		.replace(/[^a-zA-Z0-9\-._~]/g, "")
+		.slice(0, 64);
+}
+
+function generateCodeChallenge(verifier: string): string {
+	return crypto.createHash("sha256").update(verifier).digest("hex");
+}
+
+function tikTokCreds() {
+	if (env.TIKTOK_MODE === "sandbox") {
+		return {
+			appId: env.TIKTOK_SANDBOX_APP_ID!,
+			appSecret: env.TIKTOK_SANDBOX_APP_SECRET!,
+		};
+	}
+	return { appId: env.TIKTOK_APP_ID!, appSecret: env.TIKTOK_APP_SECRET! };
+}
+
 export function getAuthUrl(params: {
 	redirectUri: string;
 	state: string;
-}): string {
+}): { url: string; codeVerifier: string } {
+	const codeVerifier = generateCodeVerifier();
+	const codeChallenge = generateCodeChallenge(codeVerifier);
 	const url = new URL(`${AUTH_BASE}/v2/auth/authorize/`);
-	url.searchParams.set("client_key", env.TIKTOK_APP_ID!);
+	url.searchParams.set("client_key", tikTokCreds().appId);
 	url.searchParams.set("redirect_uri", params.redirectUri);
 	url.searchParams.set("response_type", "code");
 	url.searchParams.set("scope", "user.info.basic,video.upload,video.publish,video.list");
 	url.searchParams.set("state", params.state);
-	return url.toString();
+	url.searchParams.set("code_challenge", codeChallenge);
+	url.searchParams.set("code_challenge_method", "S256");
+	return { url: url.toString(), codeVerifier };
 }
 
 export async function exchangeCode(params: {
 	code: string;
 	redirectUri: string;
+	codeVerifier: string;
 }): Promise<TokenResponse> {
+	const creds = tikTokCreds();
 	const body = new URLSearchParams();
-	body.set("client_key", env.TIKTOK_APP_ID!);
-	body.set("client_secret", env.TIKTOK_APP_SECRET!);
+	body.set("client_key", creds.appId);
+	body.set("client_secret", creds.appSecret);
 	body.set("grant_type", "authorization_code");
 	body.set("redirect_uri", params.redirectUri);
 	body.set("code", params.code);
+	body.set("code_verifier", params.codeVerifier);
 
 	const res = await fetch(`${API_BASE}/oauth/token/`, {
 		method: "POST",
@@ -74,9 +103,10 @@ export async function exchangeCode(params: {
 export async function refreshToken(params: {
 	refreshToken: string;
 }): Promise<TokenResponse> {
+	const creds = tikTokCreds();
 	const body = new URLSearchParams();
-	body.set("client_key", env.TIKTOK_APP_ID!);
-	body.set("client_secret", env.TIKTOK_APP_SECRET!);
+	body.set("client_key", creds.appId);
+	body.set("client_secret", creds.appSecret);
 	body.set("grant_type", "refresh_token");
 	body.set("refresh_token", params.refreshToken);
 

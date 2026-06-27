@@ -28,12 +28,21 @@ async function handleGet(request: Request, { logger }: RouteContext) {
 		return new Response("Missing code or state", { status: 400 });
 	}
 
-	const appId = state;
+	let appId: string;
+	let codeVerifier: string;
+	try {
+		const parsed = JSON.parse(state);
+		appId = parsed.appId;
+		codeVerifier = parsed.verifier;
+	} catch {
+		return new Response("Invalid state", { status: 400 });
+	}
+
 	const baseUrl = env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
 	const redirectUri = `${baseUrl}/api/auth/tiktok/callback`;
 
 	try {
-		const token = await exchangeCode({ code, redirectUri });
+		const token = await exchangeCode({ code, redirectUri, codeVerifier });
 		const profile = await getProfile(token.access_token);
 
 		const existing = await db
