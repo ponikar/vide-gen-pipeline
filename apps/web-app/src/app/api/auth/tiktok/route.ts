@@ -1,5 +1,4 @@
-import { env } from "@/env";
-import { getAuthUrl } from "@/lib/tiktok/auth";
+import { getAuthUrl, TIKTOK_REDIRECT_URI } from "@/lib/tiktok/auth";
 import {
 	type RouteContext,
 	withRouteLogging,
@@ -18,11 +17,8 @@ async function handleGet(request: Request, { logger }: RouteContext) {
 		return new Response("Missing appId", { status: 400 });
 	}
 
-	const baseUrl = env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
-	const redirectUri = `${baseUrl}/api/auth/tiktok/callback`;
-
 	const { url, codeVerifier } = getAuthUrl({
-		redirectUri,
+		redirectUri: TIKTOK_REDIRECT_URI,
 		state: appId,
 	});
 

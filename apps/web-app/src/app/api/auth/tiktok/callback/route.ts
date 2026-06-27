@@ -2,7 +2,11 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { connectedAccounts } from "@/db/schema";
 import { env } from "@/env";
-import { exchangeCode, getProfile } from "@/lib/tiktok/auth";
+import {
+	exchangeCode,
+	getProfile,
+	TIKTOK_REDIRECT_URI,
+} from "@/lib/tiktok/auth";
 import {
 	type RouteContext,
 	withRouteLogging,
@@ -39,10 +43,12 @@ async function handleGet(request: Request, { logger }: RouteContext) {
 	}
 
 	const baseUrl = env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
-	const redirectUri = `${baseUrl}/api/auth/tiktok/callback`;
-
 	try {
-		const token = await exchangeCode({ code, redirectUri, codeVerifier });
+		const token = await exchangeCode({
+			code,
+			redirectUri: TIKTOK_REDIRECT_URI,
+			codeVerifier,
+		});
 		const profile = await getProfile(token.access_token);
 
 		const existing = await db

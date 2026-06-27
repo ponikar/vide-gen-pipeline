@@ -3,6 +3,8 @@ import { env } from "@/env";
 
 const AUTH_BASE = "https://www.tiktok.com";
 const API_BASE = "https://open.tiktokapis.com/v2";
+export const TIKTOK_REDIRECT_URI =
+	"https://vide-gen-pipeline.vercel.app/api/auth/tiktok/callback";
 
 export type TikTokProfile = {
 	openId: string;
