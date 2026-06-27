@@ -51,7 +51,12 @@ export function getAuthUrl(params: {
 	url.searchParams.set("client_key", tikTokCreds().appId);
 	url.searchParams.set("redirect_uri", params.redirectUri);
 	url.searchParams.set("response_type", "code");
-	url.searchParams.set("scope", "user.info.basic,video.upload,video.publish,video.list");
+	url.searchParams.set(
+		"scope",
+		env.TIKTOK_MODE === "sandbox"
+			? "user.info.basic"
+			: "user.info.basic,video.upload,video.publish,video.list",
+	);
 	url.searchParams.set("state", params.state);
 	url.searchParams.set("code_challenge", codeChallenge);
 	url.searchParams.set("code_challenge_method", "S256");
