@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomUUID } from 'node:crypto';
 import { getProvider } from '../../../src/social/registry.js';
+import { withVercelLogging } from '../../../src/vercel-logging.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 
   const provider = getProvider(req.query.provider as string);
@@ -21,3 +22,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   res.json({ url });
 }
+
+export default withVercelLogging('api.auth.url', handler);

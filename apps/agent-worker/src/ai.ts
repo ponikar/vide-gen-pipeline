@@ -10,6 +10,7 @@ import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { LanguageModel } from "ai";
 import { minimaxOpenAI } from "vercel-minimax-ai-provider";
 import { z } from "zod";
+import { createLogger } from "../../../src/logger.js";
 import {
 	formatBackgroundVideoOptions,
 	getCaptionFormula,
@@ -18,7 +19,7 @@ import {
 	type BackgroundVideoOption,
 } from "./skills.js";
 
-const LOG_PREFIX = "[agent-worker.ai]";
+const logger = createLogger("agent-worker", { component: "ai" });
 
 function extractJsonObject(text: string): string {
 	const trimmed = text
@@ -99,14 +100,18 @@ async function generateStructured<T>(
 		if (NoObjectGeneratedError.isInstance(err)) {
 			const causeMessage =
 				err.cause instanceof Error ? err.cause.message : undefined;
-			console.error(LOG_PREFIX, "structured_generation_failed", {
+			logger.error(
+				"ai.structured_generation_failed",
+				"AI returned an invalid structured response",
+				err,
+				{
 				label,
-				message: err.message,
 				cause: causeMessage,
 				finishReason: err.finishReason,
 				model: err.response?.modelId,
 				textPreview: preview(err.text),
-			});
+				},
+			);
 			throw new Error(
 				`AI structured generation failed during ${label}: ${err.message}`,
 			);

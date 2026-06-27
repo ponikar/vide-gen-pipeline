@@ -118,9 +118,27 @@ export const analyticsRouter = router({
 
 			const igToken = accounts.find((a) => a.provider === "instagram")?.accessToken;
 			const ttToken = accounts.find((a) => a.provider === "tiktok")?.accessToken;
+			let updatedCount = 0;
+			let skippedCount = 0;
+			let failedCount = 0;
 
 			for (const post of recentPosts) {
-				if (!post.platformPostId) continue;
+				if (!post.platformPostId) {
+					skippedCount++;
+					continue;
+				}
+				if (
+					(post.platform === "instagram" && !igToken) ||
+					(post.platform === "tiktok" && !ttToken)
+				) {
+					skippedCount++;
+					ctx.logger.warn(
+						"analytics.account_missing",
+						"Analytics refresh skipped because the account is not connected",
+						{ postId: post.id, platform: post.platform },
+					);
+					continue;
+				}
 
 				try {
 					if (post.platform === "instagram" && igToken) {
@@ -129,7 +147,19 @@ export const analyticsRouter = router({
 						url.searchParams.set("metric", "reach,views,saved,shares,comments,likes");
 
 						const res = await fetch(url.toString());
-						if (!res.ok) continue;
+						if (!res.ok) {
+							failedCount++;
+							ctx.logger.warn(
+								"analytics.provider_failed",
+								"Instagram analytics request failed",
+								{
+									postId: post.id,
+									platform: post.platform,
+									status: res.status,
+								},
+							);
+							continue;
+						}
 						const json = (await res.json()) as {
 							data: Array<{ name: string; values: Array<{ value: number }> }>;
 						};
@@ -147,6 +177,7 @@ export const analyticsRouter = router({
 								reach: stats.reach ?? null,
 							})
 							.where(eq(posts.id, post.id));
+						updatedCount++;
 					}
 
 					if (post.platform === "tiktok" && ttToken) {
@@ -161,12 +192,37 @@ export const analyticsRouter = router({
 								body: JSON.stringify({ filters: { video_ids: [post.platformPostId] } }),
 							},
 						);
-						if (!res.ok) continue;
+						if (!res.ok) {
+							failedCount++;
+							ctx.logger.warn(
+								"analytics.provider_failed",
+								"TikTok analytics request failed",
+								{
+									postId: post.id,
+									platform: post.platform,
+									status: res.status,
+								},
+							);
+							continue;
+						}
 						const json = (await res.json()) as {
 							data?: { videos: Array<Record<string, unknown>> };
 							error?: { code: string; message: string };
 						};
-						if (json.error) continue;
+						if (json.error) {
+							failedCount++;
+							ctx.logger.warn(
+								"analytics.provider_failed",
+								"TikTok analytics returned an error",
+								{
+									postId: post.id,
+									platform: post.platform,
+									providerCode: json.error.code,
+									providerMessage: json.error.message,
+								},
+							);
+							continue;
+						}
 
 						const video = json.data?.videos?.[0];
 						if (video) {
@@ -180,13 +236,33 @@ export const analyticsRouter = router({
 									reach: null,
 								})
 								.where(eq(posts.id, post.id));
+							updatedCount++;
+						} else {
+							skippedCount++;
 						}
 					}
-				} catch {
+				} catch (error) {
 					// API error — skip, retry next time
+					failedCount++;
+					ctx.logger.warn(
+						"analytics.post_refresh_failed",
+						"Post analytics could not be refreshed",
+						{ error, postId: post.id, platform: post.platform },
+					);
 				}
 			}
 
+			ctx.logger.info(
+				"analytics.refresh_completed",
+				"Analytics refresh completed",
+				{
+					appId: input.appId,
+					attemptedCount: recentPosts.length,
+					updatedCount,
+					skippedCount,
+					failedCount,
+				},
+			);
 			return { ok: true };
 		}),
 });

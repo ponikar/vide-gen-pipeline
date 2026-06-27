@@ -7,8 +7,9 @@ import {
   getAccountInsights,
   getRecentMedia,
 } from '../../src/instagram/analytics.js';
+import { withVercelLogging } from '../../src/vercel-logging.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method !== 'GET') return res.status(405).end();
 
@@ -61,3 +62,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(500).json({ error: message });
   }
 }
+
+export default withVercelLogging('api.content.analytics', handler);

@@ -8,9 +8,22 @@ import {
 	getRecentMedia,
 	InstagramClient,
 } from "@/lib/instagram";
+import {
+	type RouteContext,
+	withRouteLogging,
+} from "@/server/http-logging";
 
-export async function GET(request: Request) {
-	const auth = await authenticateApiKey(request);
+export function GET(request: Request) {
+	return withRouteLogging("api.v1.analytics", request, (context) =>
+		handleGet(request, context),
+	);
+}
+
+async function handleGet(
+	request: Request,
+	{ logger, requestId }: RouteContext,
+) {
+	const auth = await authenticateApiKey(request, requestId);
 	if (!auth) {
 		return Response.json(
 			{ error: "Invalid or missing API key" },
@@ -51,6 +64,12 @@ export async function GET(request: Request) {
 			]);
 			return Response.json({ username: account.username, media, insights });
 		} catch (err) {
+			logger.error(
+				"analytics.media_failed",
+				"Media analytics request failed",
+				err,
+				{ appId: auth.appId, platform: providerName, mediaId },
+			);
 			return Response.json(
 				{
 					username: account.username,
@@ -73,6 +92,12 @@ export async function GET(request: Request) {
 			recentMedia,
 		});
 	} catch (err) {
+		logger.error(
+			"analytics.account_failed",
+			"Account analytics request failed",
+			err,
+			{ appId: auth.appId, platform: providerName },
+		);
 		return Response.json(
 			{
 				username: account.username,

@@ -9,6 +9,8 @@ import { generateSpeechSegments } from "../../../src/tts.js";
 import type { InputConfig } from "../../../src/types.js";
 import { resolveVideoSource } from "../../../src/video.js";
 import { uploadVideo } from "./storage.js";
+import type { Logger } from "../../../src/logger.js";
+import { elapsedMs } from "../../../src/logger.js";
 
 export interface GenerateRequest {
 	video: string;
@@ -42,15 +44,45 @@ export async function assertSystemDeps(): Promise<void> {
 export async function runPipeline(
 	request: GenerateRequest,
 	jobId: string,
+	logger: Logger,
 ): Promise<string> {
 	const tempDir = await mkdtemp(
 		path.join(os.tmpdir(), `gold-fish-video-${jobId}-`),
 	);
 	const outputDir = path.join(OUTPUTS_DIR, jobId);
-	await mkdir(outputDir, { recursive: true });
+	const startedAt = performance.now();
+
+	async function runStage<T>(
+		stage: string,
+		message: string,
+		operation: () => Promise<T>,
+	): Promise<T> {
+		const stageStartedAt = performance.now();
+		logger.info("render.stage_started", `${message} started`, { stage });
+		try {
+			const result = await operation();
+			logger.info("render.stage_completed", `${message} completed`, {
+				stage,
+				durationMs: elapsedMs(stageStartedAt),
+			});
+			return result;
+		} catch (err) {
+			logger.error("render.stage_failed", `${message} failed`, err, {
+				stage,
+				durationMs: elapsedMs(stageStartedAt),
+			});
+			throw err;
+		}
+	}
 
 	try {
-		await assertSystemDeps();
+		await mkdir(outputDir, { recursive: true });
+		logger.info("render.started", "Video rendering pipeline started", {
+			format: request.format ?? "subtitles",
+			dialogueLineCount: request.dialogue.length,
+			ttsSpeed: request.ttsSpeed ?? 1,
+		});
+		await runStage("dependencies", "System dependency check", assertSystemDeps);
 
 		const outputPath = path.join(outputDir, "output.mp4");
 
@@ -72,32 +104,55 @@ export async function runPipeline(
 			chatConfig: request.chatConfig as InputConfig["chatConfig"],
 		};
 
-		const sourceVideoPath = await resolveVideoSource(config.video, tempDir);
-		await probeVideo(sourceVideoPath);
+		const sourceVideoPath = await runStage(
+			"source",
+			"Video source resolution",
+			() => resolveVideoSource(config.video, tempDir),
+		);
+		await runStage("probe", "Video validation", () => probeVideo(sourceVideoPath));
 
 		const chunks = chunkDialogue(config.dialogue);
 		if (chunks.length === 0) {
 			throw new Error("Dialogue produced no speakable chunks.");
 		}
 
-		const segments = await generateSpeechSegments(
-			chunks,
-			config.voices,
-			config.ttsSpeed,
-			tempDir,
+		const segments = await runStage("tts", "Speech generation", () =>
+			generateSpeechSegments(
+				chunks,
+				config.voices,
+				config.ttsSpeed,
+				tempDir,
+			),
 		);
-		await renderVideo({
-			sourceVideoPath,
-			segments,
-			outputPath,
-			tempDir,
-			format: config.format,
-			chatConfig: config.chatConfig,
-		});
+		await runStage("render", "Video composition", () =>
+			renderVideo({
+				sourceVideoPath,
+				segments,
+				outputPath,
+				tempDir,
+				format: config.format,
+				chatConfig: config.chatConfig,
+			}),
+		);
 
-		const publicUrl = await uploadVideo(jobId, outputPath);
+		const publicUrl = await runStage("upload", "Video upload", () =>
+			uploadVideo(jobId, outputPath),
+		);
+		logger.info("render.completed", "Video rendering pipeline completed", {
+			durationMs: elapsedMs(startedAt),
+		});
 		return publicUrl;
 	} finally {
-		await rm(tempDir, { recursive: true, force: true });
+		const cleanupStartedAt = performance.now();
+		try {
+			await rm(tempDir, { recursive: true, force: true });
+			logger.debug("render.cleanup_completed", "Temporary files removed", {
+				durationMs: elapsedMs(cleanupStartedAt),
+			});
+		} catch (err) {
+			logger.warn("render.cleanup_failed", "Temporary files could not be removed", {
+				error: err,
+			});
+		}
 	}
 }

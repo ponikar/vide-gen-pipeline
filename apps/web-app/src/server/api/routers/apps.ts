@@ -85,14 +85,21 @@ export const appRouter = router({
 
 	scrapeUrl: protectedProcedure
 		.input(z.object({ url: z.string().url() }))
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
 			try {
 				return await scrapeAppInfo(input.url);
-			} catch {
+			} catch (error) {
+				ctx.logger.error(
+					"app.scrape_failed",
+					"App information could not be scraped",
+					error,
+					{ urlHost: new URL(input.url).host },
+				);
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
 					message:
 						"Couldn't scrape that page. Please try again or fill in the details manually.",
+					cause: error,
 				});
 			}
 		}),

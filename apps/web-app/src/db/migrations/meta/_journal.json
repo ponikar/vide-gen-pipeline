@@ -57,6 +57,13 @@
 			"when": 1782800000000,
 			"tag": "0007_add_post_metrics",
 			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1782886400000,
+			"tag": "0008_add_video_job_phase",
+			"breakpoints": true
 		}
 	]
 }

@@ -4,6 +4,10 @@ import { z } from "zod";
 import { apps, videoJobs } from "@/db/schema";
 import { env } from "@/env";
 import { protectedProcedure, router } from "@/server/trpc";
+import {
+	REQUEST_ID_HEADER,
+	safeErrorMessage,
+} from "../../../../../../src/logger.js";
 
 const previewPayloadSchema = z.object({
 	video: z.string().url(),
@@ -71,10 +75,16 @@ async function readError(res: Response): Promise<string> {
 	return text || `HTTP ${res.status}`;
 }
 
-async function getPreviewPayloads(appId: string): Promise<PreviewPayload[]> {
+async function getPreviewPayloads(
+	appId: string,
+	requestId: string,
+): Promise<PreviewPayload[]> {
 	const res = await fetch(`${env.AGENT_WORKER}/api/onboarding/preview-payloads`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: {
+			"Content-Type": "application/json",
+			[REQUEST_ID_HEADER]: requestId,
+		},
 		body: JSON.stringify({ app_id: appId, count: DEFAULT_PREVIEW_COUNT }),
 	});
 
@@ -96,10 +106,16 @@ async function getPreviewPayloads(appId: string): Promise<PreviewPayload[]> {
 	return parsed.data.payloads;
 }
 
-async function scheduleVideo(payload: PreviewPayload): Promise<string> {
+async function scheduleVideo(
+	payload: PreviewPayload,
+	requestId: string,
+): Promise<string> {
 	const res = await fetch(`${env.VIDEO_SERVER_URL}/api/generate`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: {
+			"Content-Type": "application/json",
+			[REQUEST_ID_HEADER]: requestId,
+		},
 		body: JSON.stringify(payload),
 	});
 
@@ -153,7 +169,17 @@ export const videoGenerationRouter = router({
 				});
 			}
 
-			const payloads = await getPreviewPayloads(app.id);
+			ctx.logger.info(
+				"preview.generation_started",
+				"Generating onboarding video previews",
+				{ appId: app.id },
+			);
+			const payloads = await getPreviewPayloads(app.id, ctx.requestId);
+			ctx.logger.info(
+				"preview.payloads_received",
+				"Agent worker returned preview payloads",
+				{ appId: app.id, previewCount: payloads.length },
+			);
 
 			const created: Array<{
 				dbId: string;
@@ -169,24 +195,52 @@ export const videoGenerationRouter = router({
 						generationParams: payload as unknown as Record<string, unknown>,
 					})
 					.returning();
+				ctx.logger.info("preview.job_created", "Preview job was saved", {
+					appId: input.appId,
+					dbJobId: job.id,
+					status: job.status,
+					stateSaved: true,
+				});
 
 				try {
-					const jobId = await scheduleVideo(payload);
+					const jobId = await scheduleVideo(payload, ctx.requestId);
 
-					await ctx.db
+					const [saved] = await ctx.db
 						.update(videoJobs)
 						.set({ status: "running", videoServerJobId: jobId })
-						.where(eq(videoJobs.id, job.id));
+						.where(eq(videoJobs.id, job.id))
+						.returning({ id: videoJobs.id });
+					ctx.logger.info(
+						"preview.render_queued",
+						"Preview render was queued and saved",
+						{
+							appId: input.appId,
+							dbJobId: job.id,
+							renderJobId: jobId,
+							stateSaved: Boolean(saved),
+						},
+					);
 
 					created.push({ dbId: job.id, videoServerJobId: jobId });
 				} catch (err) {
-					await ctx.db
+					const [saved] = await ctx.db
 						.update(videoJobs)
 						.set({
 							status: "failed",
-							error: err instanceof Error ? err.message : String(err),
+							error: safeErrorMessage(err),
 						})
-						.where(eq(videoJobs.id, job.id));
+						.where(eq(videoJobs.id, job.id))
+						.returning({ id: videoJobs.id });
+					ctx.logger.error(
+						"preview.render_queue_failed",
+						"Preview render could not be queued",
+						err,
+						{
+							appId: input.appId,
+							dbJobId: job.id,
+							stateSaved: Boolean(saved),
+						},
+					);
 					created.push({ dbId: job.id, videoServerJobId: null });
 				}
 			}
@@ -253,16 +307,28 @@ export const videoGenerationRouter = router({
 				try {
 					const res = await fetch(
 						`${env.VIDEO_SERVER_URL}/api/status/${job.videoServerJobId}`,
+						{ headers: { [REQUEST_ID_HEADER]: ctx.requestId } },
 					);
 
 					if (res.status === 404) {
-						await ctx.db
+						const [saved] = await ctx.db
 							.update(videoJobs)
 							.set({
 								status: "failed",
 								error: "Video server lost this job (restarted?)",
 							})
-							.where(eq(videoJobs.id, job.id));
+							.where(eq(videoJobs.id, job.id))
+							.returning({ id: videoJobs.id });
+						ctx.logger.error(
+							"preview.render_job_lost",
+							"Video server no longer has the preview job",
+							new Error("Video server returned 404 for an active job"),
+							{
+								dbJobId: job.id,
+								renderJobId: job.videoServerJobId,
+								stateSaved: Boolean(saved),
+							},
+						);
 						return toPreviewStatus({
 							...job,
 							status: "failed",
@@ -274,10 +340,20 @@ export const videoGenerationRouter = router({
 						const remote = videoServerStatusResponseSchema.parse(await res.json());
 
 						if (remote.status === "done" && remote.outputUrl) {
-							await ctx.db
+							const [saved] = await ctx.db
 								.update(videoJobs)
 								.set({ status: "done", outputUrl: remote.outputUrl })
-								.where(eq(videoJobs.id, job.id));
+								.where(eq(videoJobs.id, job.id))
+								.returning({ id: videoJobs.id });
+							ctx.logger.info(
+								"preview.render_completed",
+								"Preview render completed and was saved",
+								{
+									dbJobId: job.id,
+									renderJobId: job.videoServerJobId,
+									stateSaved: Boolean(saved),
+								},
+							);
 							return toPreviewStatus({
 								...job,
 								status: "done",
@@ -287,10 +363,21 @@ export const videoGenerationRouter = router({
 						}
 
 						if (remote.status === "failed") {
-							await ctx.db
+							const [saved] = await ctx.db
 								.update(videoJobs)
 								.set({ status: "failed", error: remote.error })
-								.where(eq(videoJobs.id, job.id));
+								.where(eq(videoJobs.id, job.id))
+								.returning({ id: videoJobs.id });
+							ctx.logger.error(
+								"preview.render_failed",
+								"Preview render failed and was saved",
+								new Error(remote.error ?? "Video rendering failed"),
+								{
+									dbJobId: job.id,
+									renderJobId: job.videoServerJobId,
+									stateSaved: Boolean(saved),
+								},
+							);
 							return toPreviewStatus({
 								...job,
 								status: "failed",
@@ -300,15 +387,37 @@ export const videoGenerationRouter = router({
 
 						const remoteStatus = normalizeStatus(remote.status);
 						if (remoteStatus !== normalizeStatus(job.status)) {
-							await ctx.db
+							const [saved] = await ctx.db
 								.update(videoJobs)
 								.set({ status: remoteStatus })
-								.where(eq(videoJobs.id, job.id));
+								.where(eq(videoJobs.id, job.id))
+								.returning({ id: videoJobs.id });
+							ctx.logger.info(
+								"preview.status_changed",
+								"Preview status changed and was saved",
+								{
+									dbJobId: job.id,
+									renderJobId: job.videoServerJobId,
+									status: remoteStatus,
+									stateSaved: Boolean(saved),
+								},
+							);
 							return toPreviewStatus({ ...job, status: remoteStatus });
 						}
 					}
-				} catch {
+				} catch (err) {
 					// Keep current DB status when video-server is temporarily unreachable.
+					ctx.logger.warn(
+						"preview.status_unavailable",
+						"Video server status is temporarily unavailable; database state was kept",
+						{
+							error: err,
+							dbJobId: job.id,
+							renderJobId: job.videoServerJobId,
+							status: job.status,
+							stateSaved: false,
+						},
+					);
 				}
 			}
 
@@ -350,7 +459,7 @@ export const videoGenerationRouter = router({
 				});
 			}
 
-			const jobId = await scheduleVideo(payload.data);
+			const jobId = await scheduleVideo(payload.data, ctx.requestId);
 
 			const [updated] = await ctx.db
 				.update(videoJobs)
@@ -363,6 +472,12 @@ export const videoGenerationRouter = router({
 				})
 				.where(eq(videoJobs.id, job.id))
 				.returning();
+			ctx.logger.info("preview.retry_queued", "Preview retry was queued and saved", {
+				appId: job.appId,
+				dbJobId: job.id,
+				renderJobId: jobId,
+				stateSaved: Boolean(updated),
+			});
 
 			return { dbId: updated.id, videoServerJobId: updated.videoServerJobId };
 		}),
@@ -400,6 +515,11 @@ export const videoGenerationRouter = router({
 			if (!job) {
 				throw new TRPCError({ code: "NOT_FOUND", message: "Job not found" });
 			}
+			ctx.logger.info("preview.preference_saved", "Preview preference was saved", {
+				dbJobId: input.id,
+				liked: input.liked,
+				stateSaved: true,
+			});
 
 			return job;
 		}),
@@ -456,6 +576,15 @@ export const videoGenerationRouter = router({
 				})
 				.where(eq(apps.id, input.appId))
 				.returning();
+			ctx.logger.info(
+				"preview.fine_tune_saved",
+				"Fine-tune preferences were saved",
+				{
+					appId: input.appId,
+					selectedVideoCount: selected.length,
+					stateSaved: Boolean(updated),
+				},
+			);
 
 			return updated;
 		}),

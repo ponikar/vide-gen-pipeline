@@ -3,11 +3,24 @@ import { db } from "@/db";
 import { connectedAccounts, posts } from "@/db/schema";
 import { authenticateApiKey } from "@/lib/api-key-auth";
 import { InstagramProvider } from "@/lib/instagram";
+import {
+	type RouteContext,
+	withRouteLogging,
+} from "@/server/http-logging";
 
 const provider = new InstagramProvider();
 
-export async function POST(request: Request) {
-	const auth = await authenticateApiKey(request);
+export function POST(request: Request) {
+	return withRouteLogging("api.v1.posts.create", request, (context) =>
+		handlePost(request, context),
+	);
+}
+
+async function handlePost(
+	request: Request,
+	{ logger, requestId }: RouteContext,
+) {
+	const auth = await authenticateApiKey(request, requestId);
 	if (!auth) {
 		return Response.json(
 			{ error: "Invalid or missing API key" },
@@ -18,7 +31,8 @@ export async function POST(request: Request) {
 	let body: Record<string, unknown>;
 	try {
 		body = await request.json();
-	} catch {
+	} catch (error) {
+		logger.warn("post.request_invalid", "Post request body is invalid", { error });
 		return Response.json({ error: "Invalid JSON body" }, { status: 400 });
 	}
 
@@ -63,8 +77,19 @@ export async function POST(request: Request) {
 						tokenExpiresAt: new Date(Date.now() + refreshed.expiresIn * 1000),
 					})
 					.where(eq(connectedAccounts.id, account.id))
-					.then(() => {})
-					.catch(() => {});
+					.then(() => {
+						logger.info("post.token_refresh_saved", "Refreshed token was saved", {
+							accountId: account.id,
+							stateSaved: true,
+						});
+					})
+					.catch((error: unknown) => {
+						logger.warn(
+							"post.token_refresh_save_failed",
+							"Refreshed token could not be saved",
+							{ error, accountId: account.id, stateSaved: false },
+						);
+					});
 			}
 		}
 	}
@@ -89,6 +114,12 @@ export async function POST(request: Request) {
 			},
 		})
 		.returning();
+	logger.info("post.published", "Video was published and the post was saved", {
+		appId: auth.appId,
+		postId: post.id,
+		platform: providerName,
+		stateSaved: true,
+	});
 
 	return Response.json({
 		id: post.id,

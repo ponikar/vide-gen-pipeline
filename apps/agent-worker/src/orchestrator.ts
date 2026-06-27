@@ -4,6 +4,12 @@ import { postReel as instagramPostReel } from "../../../src/instagram/post.js";
 import { TikTokClient } from "../../../src/tiktok/client.js";
 import { postReel as tiktokPostReel } from "../../../src/tiktok/post.js";
 import {
+	createLogger,
+	elapsedMs,
+	REQUEST_ID_HEADER,
+	safeErrorMessage,
+} from "../../../src/logger.js";
+import {
 	generateCaptions,
 	generateHooks,
 	generateScript,
@@ -33,26 +39,98 @@ export async function runPipeline(
 	appId: string,
 	socialPlatforms: string[],
 	videoServerUrl: string,
+	requestId: string,
 ) {
 	const jobId = randomUUID();
-	const log = (msg: string) => console.log(`[${jobId.slice(0, 8)}] ${msg}`);
+	const startedAt = performance.now();
+	const logger = createLogger("agent-worker", {
+		requestId,
+		jobId,
+		scheduleId,
+		appId,
+	});
+	let currentPhase = "starting";
+	let phaseStartedAt = performance.now();
+	let stateCreated = false;
 
 	const hookCheatSheet = getHookCheatSheet();
 	const dialogueRules = getDialogueRules();
 	const captionFormula = getCaptionFormula();
 
 	async function setPhase(phase: string) {
-		log(`phase: ${phase}`);
+		const previousPhase = currentPhase;
+		const [saved] = await db`
+			UPDATE video_jobs
+			SET current_phase = ${phase}, updated_at = NOW()
+			WHERE id = ${jobId}
+			RETURNING id, current_phase
+		`;
+		if (!saved) throw new Error(`Video job disappeared before phase ${phase}`);
+		if (previousPhase !== "starting") {
+			logger.info("pipeline.phase_completed", "Pipeline phase completed", {
+				phase: previousPhase,
+				durationMs: elapsedMs(phaseStartedAt),
+			});
+		}
+		currentPhase = phase;
+		phaseStartedAt = performance.now();
+		logger.info("pipeline.phase_started", "Pipeline phase started", {
+			phase,
+			previousPhase,
+			stateSaved: true,
+		});
 	}
 
-	async function fail(error: string, phase: string) {
-		log(`FAILED at ${phase}: ${error}`);
-		await db`INSERT INTO video_jobs (id, app_id, cron_schedule_id, status, error, current_phase)
-            VALUES (${jobId}, ${appId}, ${scheduleId}, 'failed', ${error}, ${phase})`;
+	async function fail(error: unknown) {
+		const message = safeErrorMessage(error);
+		logger.error("pipeline.failed", "Pipeline failed", error, {
+			phase: currentPhase,
+			stateCreated,
+			durationMs: elapsedMs(startedAt),
+		});
+		if (!stateCreated) return;
+
+		try {
+			const [saved] = await db`
+				UPDATE video_jobs
+				SET status = 'failed',
+					error = ${message},
+					current_phase = ${currentPhase},
+					updated_at = NOW()
+				WHERE id = ${jobId}
+				RETURNING id, status, current_phase
+			`;
+			if (!saved) throw new Error("Video job was missing during failure update");
+			logger.info("pipeline.failure_saved", "Pipeline failure was saved", {
+				phase: currentPhase,
+				stateSaved: true,
+			});
+		} catch (stateError) {
+			logger.error(
+				"pipeline.failure_save_failed",
+				"Pipeline failed and its database state could not be saved",
+				stateError,
+				{ phase: currentPhase, stateSaved: false, originalError: message },
+			);
+		}
 	}
 
 	try {
-		await setPhase("learning");
+		const [created] = await db`
+			INSERT INTO video_jobs (
+				id, app_id, cron_schedule_id, status, current_phase, updated_at
+			)
+			VALUES (${jobId}, ${appId}, ${scheduleId}, 'running', 'learning', NOW())
+			RETURNING id, status, current_phase
+		`;
+		if (!created) throw new Error("Video job could not be created");
+		stateCreated = true;
+		currentPhase = "learning";
+		logger.info("pipeline.started", "Pipeline started and job state was saved", {
+			platforms: socialPlatforms,
+			phase: currentPhase,
+			stateSaved: true,
+		});
 
 		const [app] =
 			await db`SELECT name, description, scraped_info FROM apps WHERE id = ${appId}`;
@@ -106,7 +184,9 @@ export async function runPipeline(
 		const learningResult = await learnFromHistory(
 			historicalSummary || "No historical posts available.",
 		);
-		log(`Lessons: ${learningResult.lessons.slice(0, 200)}`);
+		logger.debug("pipeline.learning_completed", "Historical learning completed", {
+			historicalPostCount: posts.length,
+		});
 
 		await setPhase("researching");
 
@@ -128,7 +208,9 @@ export async function runPipeline(
 			hookCheatSheet,
 		);
 		const selectedHook = hookResult.selectedText;
-		log(`Selected hook: ${selectedHook.slice(0, 100)}`);
+		logger.debug("pipeline.hook_selected", "A hook was selected", {
+			variantCount: hookResult.variants.length,
+		});
 
 		await setPhase("scripting");
 
@@ -176,8 +258,13 @@ export async function runPipeline(
 			),
 			reasoning: videoSelectionResult.reasoning,
 		};
-		log(
-			`Selected background video: ${selectedBackgroundVideo.label} (${selectedBackgroundVideo.template}) — ${selectedBackgroundVideo.reasoning}`,
+		logger.info(
+			"pipeline.background_selected",
+			"Background video selected",
+			{
+				backgroundVideoLabel: selectedBackgroundVideo.label,
+				template: selectedBackgroundVideo.template,
+			},
 		);
 
 		await setPhase("rendering");
@@ -194,7 +281,10 @@ export async function runPipeline(
 
 		const genRes = await fetch(`${videoServerUrl}/api/generate`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: {
+				"Content-Type": "application/json",
+				[REQUEST_ID_HEADER]: requestId,
+			},
 			body: JSON.stringify({
 				video: selectedBackgroundVideo.url,
 				dialogue,
@@ -210,14 +300,23 @@ export async function runPipeline(
 		}
 
 		const { jobId: renderJobId } = (await genRes.json()) as { jobId: string };
+		logger.info("pipeline.render_queued", "Video render was queued", {
+			renderJobId,
+		});
 		let outputUrl: string | null = null;
 
 		for (let i = 0; i < MAX_POLLS; i++) {
 			const statusRes = await fetch(
 				`${videoServerUrl}/api/status/${renderJobId}`,
+				{ headers: { [REQUEST_ID_HEADER]: requestId } },
 			);
 			if (statusRes.status === 404) {
 				throw new Error("Video server lost the job");
+			}
+			if (!statusRes.ok) {
+				throw new Error(
+					`Video status request failed with HTTP ${statusRes.status}`,
+				);
 			}
 			const status = (await statusRes.json()) as {
 				status: string;
@@ -227,6 +326,10 @@ export async function runPipeline(
 
 			if (status.status === "done" && status.outputUrl) {
 				outputUrl = status.outputUrl;
+				logger.info("pipeline.render_completed", "Video render completed", {
+					renderJobId,
+					pollCount: i + 1,
+				});
 				break;
 			}
 			if (status.status === "failed") {
@@ -272,12 +375,24 @@ export async function runPipeline(
 			meta,
 		};
 
-		await db`
-      INSERT INTO video_jobs (id, app_id, cron_schedule_id, status, current_phase, generation_params, output_url)
-      VALUES (${jobId}, ${appId}, ${scheduleId}, 'running', 'publishing',
-              ${JSON.stringify(generationParams)},
-              ${outputUrl})
-    `;
+		const [renderStateSaved] = await db`
+			UPDATE video_jobs
+			SET status = 'running',
+				current_phase = 'publishing',
+				generation_params = ${JSON.stringify(generationParams)},
+				output_url = ${outputUrl},
+				updated_at = NOW()
+			WHERE id = ${jobId}
+			RETURNING id
+		`;
+		if (!renderStateSaved) {
+			throw new Error("Video job disappeared before render state was saved");
+		}
+		logger.info(
+			"pipeline.render_state_saved",
+			"Rendered video and generation details were saved",
+			{ phase: currentPhase, stateSaved: true },
+		);
 
 		const accounts = await db`
       SELECT provider, provider_user_id, access_token, refresh_token, token_expires_at
@@ -285,12 +400,18 @@ export async function runPipeline(
       WHERE app_id = ${appId}
     `;
 
+		const publishingFailures: string[] = [];
 		for (const platform of socialPlatforms) {
+			const platformLogger = logger.child({ platform });
 			const account = (accounts as Record<string, unknown>[]).find(
 				(a: Record<string, unknown>) => a.provider === platform,
 			);
 			if (!account) {
-				log(`No ${platform} account linked, skipping`);
+				publishingFailures.push(`${platform}: account is not linked`);
+				platformLogger.warn(
+					"pipeline.publish_skipped",
+					"Requested social account is not linked",
+				);
 				continue;
 			}
 
@@ -319,7 +440,11 @@ export async function runPipeline(
 						captionResult.tiktok,
 					);
 				} else {
-					log(`Unknown platform: ${platform}, skipping`);
+					publishingFailures.push(`${platform}: platform is unsupported`);
+					platformLogger.warn(
+						"pipeline.publish_skipped",
+						"Requested social platform is unsupported",
+					);
 					continue;
 				}
 
@@ -337,20 +462,52 @@ export async function runPipeline(
                   ${JSON.stringify(meta)}, ${jobId}, 'generated')
         `;
 
-				log(`Posted to ${platform}`);
+				platformLogger.info(
+					"pipeline.publish_completed",
+					"Video was published and the post was saved",
+					{
+						platformPostId:
+							(result as { igMediaId?: string }).igMediaId ??
+							(result as { publishId?: string }).publishId,
+						stateSaved: true,
+					},
+				);
 			} catch (err) {
-				log(`Failed to post to ${platform}: ${err}`);
+				const message = err instanceof Error ? err.message : String(err);
+				publishingFailures.push(`${platform}: ${message}`);
+				platformLogger.error(
+					"pipeline.publish_failed",
+					"Video publishing or post persistence failed",
+					err,
+				);
 			}
 		}
 
-		await db`
-      UPDATE video_jobs SET status = 'done', current_phase = NULL
-      WHERE id = ${jobId}
-    `;
+		if (publishingFailures.length > 0) {
+			throw new Error(publishingFailures.join("; "));
+		}
 
-		log("done");
+		const [completed] = await db`
+			UPDATE video_jobs
+			SET status = 'done',
+				error = NULL,
+				current_phase = NULL,
+				updated_at = NOW()
+			WHERE id = ${jobId}
+			RETURNING id, status
+		`;
+		if (!completed) throw new Error("Video job disappeared before completion");
+		logger.info("pipeline.phase_completed", "Pipeline phase completed", {
+			phase: currentPhase,
+			durationMs: elapsedMs(phaseStartedAt),
+		});
+		logger.info("pipeline.completed", "Pipeline completed successfully", {
+			publishedPlatformCount: socialPlatforms.length,
+			durationMs: elapsedMs(startedAt),
+			stateSaved: true,
+		});
 	} catch (err) {
-		const msg = err instanceof Error ? err.message : String(err);
-		await fail(msg, "unknown");
+		await fail(err);
+		throw err;
 	}
 }

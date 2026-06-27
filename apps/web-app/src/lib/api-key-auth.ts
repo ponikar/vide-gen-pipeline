@@ -2,12 +2,19 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { apiKeys } from "@/db/schema";
 import { sha256 } from "./crypto";
+import { createLogger, getRequestId } from "../../../../src/logger.js";
 
-export async function authenticateApiKey(request: Request): Promise<{
+const logger = createLogger("web", { component: "api-key-auth" });
+
+export async function authenticateApiKey(
+	request: Request,
+	requestId = getRequestId(request.headers),
+): Promise<{
 	keyId: string;
 	clerkUserId: string;
 	appId: string;
 } | null> {
+	const requestLogger = logger.child({ requestId });
 	const auth = request.headers.get("authorization");
 	if (!auth?.startsWith("Bearer gf_")) return null;
 
@@ -27,7 +34,13 @@ export async function authenticateApiKey(request: Request): Promise<{
 		.set({ lastUsedAt: new Date() })
 		.where(eq(apiKeys.id, key.id))
 		.then(() => {})
-		.catch(() => {});
+		.catch((error: unknown) => {
+			requestLogger.warn(
+				"api_key.last_used_save_failed",
+				"API key usage time could not be saved",
+				{ error, keyId: key.id, stateSaved: false },
+			);
+		});
 
 	return { keyId: key.id, clerkUserId: key.clerkUserId, appId: key.appId };
 }

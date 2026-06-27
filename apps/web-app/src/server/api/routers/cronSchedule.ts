@@ -3,18 +3,23 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { apps, connectedAccounts, cronSchedules } from "@/db/schema";
 import { protectedProcedure, router } from "@/server/trpc";
+import { REQUEST_ID_HEADER } from "../../../../../../src/logger.js";
 
 const AGENT_WORKER_URL =
 	process.env.AGENT_WORKER ?? "http://localhost:3002";
 
 async function notifyAgentWorker(
 	path: string,
+	requestId: string,
 	body?: Record<string, unknown>,
 ) {
 	const url = `${AGENT_WORKER_URL}${path}`;
 	const res = await fetch(url, {
 		method: body ? "POST" : "DELETE",
-		headers: body ? { "Content-Type": "application/json" } : undefined,
+		headers: {
+			...(body ? { "Content-Type": "application/json" } : {}),
+			[REQUEST_ID_HEADER]: requestId,
+		},
 		body: body ? JSON.stringify(body) : undefined,
 	});
 	if (!res.ok) {
@@ -77,7 +82,7 @@ export const cronScheduleRouter = router({
 			const secret = generateSecret();
 			const id = randomUUID();
 
-			await notifyAgentWorker("/api/schedules", {
+			await notifyAgentWorker("/api/schedules", ctx.requestId, {
 				schedule_id: id,
 				secret,
 				schedule_time: input.scheduleTime,
@@ -85,6 +90,11 @@ export const cronScheduleRouter = router({
 				timezone: input.timezone,
 				social_platforms: input.socialPlatforms,
 			});
+			ctx.logger.info(
+				"schedule.worker_configured",
+				"Agent worker accepted the schedule configuration",
+				{ appId: input.appId, scheduleId: id },
+			);
 
 			const [schedule] = await ctx.db
 				.insert(cronSchedules)
@@ -99,6 +109,12 @@ export const cronScheduleRouter = router({
 					webhookSecret: secret,
 				})
 				.returning();
+			ctx.logger.info("schedule.created", "Schedule was saved", {
+				appId: input.appId,
+				scheduleId: id,
+				platforms,
+				stateSaved: Boolean(schedule),
+			});
 
 			const webhookUrl = `${AGENT_WORKER_URL}/nudge`;
 
@@ -194,6 +210,11 @@ export const cronScheduleRouter = router({
 				})
 				.where(eq(cronSchedules.id, input.id))
 				.returning();
+			ctx.logger.info("schedule.updated", "Schedule changes were saved", {
+				appId: schedule.appId,
+				scheduleId: input.id,
+				stateSaved: Boolean(updated),
+			});
 
 			return updated;
 		}),
@@ -218,8 +239,13 @@ export const cronScheduleRouter = router({
 				);
 			if (!app) throw new Error("App not found");
 
-			await notifyAgentWorker(`/api/schedules/${input.id}`);
+			await notifyAgentWorker(`/api/schedules/${input.id}`, ctx.requestId);
 			await ctx.db.delete(cronSchedules).where(eq(cronSchedules.id, input.id));
+			ctx.logger.info("schedule.deleted", "Schedule was removed", {
+				appId: schedule.appId,
+				scheduleId: input.id,
+				stateSaved: true,
+			});
 			return { ok: true };
 		}),
 
@@ -248,6 +274,11 @@ export const cronScheduleRouter = router({
 				.update(cronSchedules)
 				.set({ webhookSecret: newSecret })
 				.where(eq(cronSchedules.id, input.id));
+			ctx.logger.info("schedule.secret_regenerated", "Schedule secret was replaced", {
+				appId: schedule.appId,
+				scheduleId: input.id,
+				stateSaved: true,
+			});
 
 			return { webhookSecret: newSecret };
 		}),

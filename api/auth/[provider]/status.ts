@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { db, schema } from '../../../src/db/index.js';
 import { eq } from 'drizzle-orm';
+import { withVercelLogging } from '../../../src/vercel-logging.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 
   const provider = req.query.provider as string;
@@ -30,3 +31,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     expiresAt: account.tokenExpiresAt?.toISOString(),
   });
 }
+
+export default withVercelLogging('api.auth.status', handler);

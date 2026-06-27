@@ -4,6 +4,38 @@ Two-app setup:
 - apps/web-app/ — Next.js (App Router) dashboard + marketing landing page
 - apps/video-server/ — Hono server with in-memory job queue, Kokoro TTS (ONNX), pipeline rendering, Supabase Storage upload
 Communication: Dashboard calls video-server via HTTP (POST /api/generate, GET /api/status/:jobId, GET /api/output/:jobId). No WebSocket — 2s polling.
+
+Operational Logging and Agent Job State (2026-06-27, iteration 1)
+- Added `src/logger.ts`, a shared structured stdout logger with levels, child context, nested error stack/cause serialization, request ID support, elapsed-time helpers, and automatic credential/content redaction. Added focused logger tests in `tests/logger.test.ts`.
+- Agent-worker HTTP requests now receive/return `x-request-id`, emit lifecycle logs, and carry correlation context into onboarding preview generation and autonomous pipelines. AI structured-response failures, scheduler operations, preview stages, and nudge validation now produce readable structured events.
+- Corrected autonomous job persistence: `video_jobs` is inserted once at pipeline start, phase changes use updates, failures update the existing job, and completion is saved only after every requested platform publishes and its post row is stored. Partial/missing/unsupported platform outcomes now fail the job instead of reporting false success. Accepted nudges persist `last_triggered_at`.
+- Added `video_jobs.current_phase` to the Drizzle schema and migration `0008_add_video_job_phase.sql`, matching the worker's phase-state contract.
+- Files modified in this iteration: `src/logger.ts`, `tests/logger.test.ts`, `apps/agent-worker/src/ai.ts`, `apps/agent-worker/src/fine-tune.ts`, `apps/agent-worker/src/index.ts`, `apps/agent-worker/src/orchestrator.ts`, `apps/web-app/src/db/schema.ts`, `apps/web-app/src/db/migrations/0008_add_video_job_phase.sql`, `apps/web-app/src/db/migrations/meta/_journal.json`, `codemap.md`.
+- Initial agent-worker typecheck caught a `schedule_days` log-field naming typo in `apps/agent-worker/src/index.ts`; it was corrected before continuing. Remaining verification is pending.
+
+Video Server Operational Logging (2026-06-27, iteration 2)
+- Added a per-process video-server instance ID and request IDs on Hono requests/responses. Startup now reports dependency and TTS readiness, while missing jobs explicitly identify restart-related loss as a likely cause.
+- Queue logs now cover acceptance, wait time, start, completion/failure, queue depth, running count, and total in-memory job count with job/request correlation.
+- Rendering now reports timed source resolution, probe, TTS, composition, upload, and cleanup stages. Stage failures retain their full stack; cleanup failures are warnings and no longer replace an otherwise successful render result.
+- Files modified in this iteration: `apps/video-server/src/index.ts`, `apps/video-server/src/queue.ts`, `apps/video-server/src/pipeline.ts`, `codemap.md`.
+- Initial video-server typecheck caught that the new required queue logger still had an empty default options object; the default was removed. Verification continues after the correction.
+
+Next.js and API Operational Logging (2026-06-27, iteration 3)
+- Added tRPC-wide request lifecycle logging with request IDs, durations, operation names, error stacks, and authenticated user context. The Next.js tRPC and direct API boundaries return `x-request-id`; direct routes safely clone immutable redirect responses before adding the header.
+- Added detailed state logs to preview generation/status/retry/preferences, schedules, onboarding, OAuth account persistence, public post publishing, API-key usage persistence, and analytics refreshes. Cross-service Next.js calls now forward the same request ID.
+- Replaced silent video polling, token persistence, scraper, API-key timestamp, and analytics-provider failures with contextual warnings/errors. Analytics refresh now returns and logs attempted/updated/skipped/failed counts.
+- Added generic request/error logging for the legacy Vercel `api/` handlers through `src/vercel-logging.ts`, without changing their response contracts.
+- Added `tests/video-queue.test.ts` for queue success, retained failures, and concurrency backpressure.
+- Files modified in this iteration: `src/vercel-logging.ts`, the server-side Next.js tRPC/logging modules and critical API/router files, legacy `api/` entrypoints, `tests/video-queue.test.ts`, and `codemap.md`.
+- Verification so far: root typecheck passes; web-app typecheck reports only the two pre-existing unrelated `LandingPage.tsx` `clientX/clientY` typing errors.
+
+Operational Logging Final Hardening and Verification (2026-06-27, iteration 4)
+- Added bounded/sanitized database error messages, phase-completion durations, video startup failure reporting, request correlation inside render stages, reliable temp cleanup after output-directory failures, and `RETURNING` checks before logs claim preview state was saved.
+- Expanded tests for initial/later agent job failures, failure-state persistence failure, immutable redirect request IDs, logger redaction/bounded errors, and video queue success/failure/concurrency.
+- Runtime smoke verification passed outside the sandbox: agent-worker returned the supplied `x-request-id` and emitted correlated start/rejection/completion events; video-server reported dependency/TTS startup timing and returned the supplied request ID with a correlated validation warning. The initial sandboxed `tsx` run hit the known local IPC permission restriction. Force-stopping the TTS process after the successful smoke produced a native mutex shutdown abort; startup and request handling had already passed.
+- The new migration is checked in but was not applied to any live database.
+- Final verification: all 30 Vitest tests pass; root, agent-worker, and video-server typechecks pass; migration journal parsing and `git diff --check` pass. Web-app typecheck still reports only the two pre-existing unrelated `LandingPage.tsx` `clientX/clientY` errors.
+- Files modified in this iteration: `src/logger.ts`, agent/video state and pipeline modules, preview status persistence, `tests/logger.test.ts`, `tests/agent-worker-state.test.ts`, `tests/http-logging.test.ts`, `tests/video-queue.test.ts`, and `codemap.md`.
 Storage: Rendered MP4s uploaded to Supabase Storage (videos bucket). Local filesystem outputs are temporary. SUPABASE_URL = https://hlneqkcervrvftffotxn.supabase.co.
 Landing Page (Root /)
 - No Clerk redirect — root shows a marketing landing page

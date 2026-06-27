@@ -2,8 +2,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getProvider } from '../../../../src/social/registry.js';
 import { db, schema } from '../../../../src/db/index.js';
 import { eq } from 'drizzle-orm';
+import { withVercelLogging } from '../../../../src/vercel-logging.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const { provider: providerName, containerId } = req.query;
@@ -35,3 +36,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   res.json(result);
 }
+
+export default withVercelLogging('api.content.post.publish', handler);

@@ -1,7 +1,17 @@
 import { env } from "@/env";
 import { getAuthUrl } from "@/lib/instagram/auth";
+import {
+	type RouteContext,
+	withRouteLogging,
+} from "@/server/http-logging";
 
-export async function GET(request: Request) {
+export function GET(request: Request) {
+	return withRouteLogging("oauth.instagram.start", request, (context) =>
+		handleGet(request, context),
+	);
+}
+
+async function handleGet(request: Request, { logger }: RouteContext) {
 	const { searchParams } = new URL(request.url);
 	const appId = searchParams.get("appId");
 	if (!appId) {
@@ -14,6 +24,10 @@ export async function GET(request: Request) {
 	const url = getAuthUrl({
 		redirectUri,
 		state: appId,
+	});
+	logger.info("oauth.redirect_created", "Instagram authorization redirect created", {
+		appId,
+		provider: "instagram",
 	});
 
 	return Response.redirect(url, 302);

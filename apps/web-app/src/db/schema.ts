@@ -104,6 +104,7 @@ export const videoJobs = pgTable("video_jobs", {
 		onDelete: "set null",
 	}),
 	status: text("status").notNull().default("pending"),
+	currentPhase: text("current_phase"),
 	generationParams: jsonb("generation_params").$type<Record<string, unknown>>(),
 	videoServerJobId: text("video_server_job_id"),
 	outputUrl: text("output_url"),

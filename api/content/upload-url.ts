@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { withVercelLogging } from '../../src/vercel-logging.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -8,7 +9,7 @@ const supabase = createClient(
 
 const BUCKET = 'videos';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const body = req.body as Record<string, unknown> | undefined;
@@ -29,3 +30,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   res.json({ uploadUrl: data.signedUrl, publicUrl });
 }
+
+export default withVercelLogging('api.content.upload_url', handler);

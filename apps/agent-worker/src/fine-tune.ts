@@ -5,6 +5,7 @@ import {
 	selectBackgroundVideo,
 } from "./ai.js";
 import type { Db } from "./db.js";
+import type { Logger } from "../../../src/logger.js";
 import {
 	getBackgroundVideoOptions,
 	getDialogueRules,
@@ -85,7 +86,13 @@ export async function generateOnboardingPreviewPayloads(
 	db: Db,
 	appId: string,
 	count: PreviewCount = 3,
+	logger?: Logger,
 ): Promise<OnboardingPreviewPayload[]> {
+	logger?.info(
+		"preview.profile_loading",
+		"Loading the app profile for preview generation",
+		{ appId, previewCount: count },
+	);
 	const [app] = await db`
     SELECT name, description, scraped_info
     FROM apps
@@ -105,6 +112,9 @@ export async function generateOnboardingPreviewPayloads(
 		onboardingContext,
 		hookCheatSheet,
 	);
+	logger?.info("preview.research_completed", "Preview research completed", {
+		appId,
+	});
 	const hookResult = await generateHooks(
 		(app as AppRow).name,
 		profile,
@@ -125,7 +135,11 @@ export async function generateOnboardingPreviewPayloads(
 	const selectedBackgroundVideos: Array<
 		BackgroundVideoOption & { reasoning: string }
 	> = [];
-	for (const selectedHook of selectedHooks) {
+	for (const [index, selectedHook] of selectedHooks.entries()) {
+		logger?.info("preview.script_started", "Generating a preview script", {
+			appId,
+			previewNumber: index + 1,
+		});
 		const scriptResult = await generateScript(
 			(app as AppRow).name,
 			profile,
@@ -184,7 +198,17 @@ export async function generateOnboardingPreviewPayloads(
 				backgroundVideo: selectedBackgroundVideo,
 			},
 		});
+		logger?.info("preview.script_completed", "Preview payload is ready", {
+			appId,
+			previewNumber: index + 1,
+			videoCategory,
+			backgroundVideoLabel: selectedBackgroundVideo.label,
+		});
 	}
 
+	logger?.info("preview.completed", "All preview payloads are ready", {
+		appId,
+		previewCount: payloads.length,
+	});
 	return payloads;
 }

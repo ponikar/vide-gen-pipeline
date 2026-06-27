@@ -3,14 +3,28 @@ import { db } from "@/db";
 import { connectedAccounts, posts } from "@/db/schema";
 import { authenticateApiKey } from "@/lib/api-key-auth";
 import { InstagramProvider } from "@/lib/instagram";
+import {
+	type RouteContext,
+	withRouteLogging,
+} from "@/server/http-logging";
 
 const provider = new InstagramProvider();
 
-export async function POST(
+export function POST(
+	request: Request,
+	route: { params: Promise<{ containerId: string }> },
+) {
+	return withRouteLogging("api.v1.posts.publish", request, (context) =>
+		handlePost(request, route, context),
+	);
+}
+
+async function handlePost(
 	request: Request,
 	{ params }: { params: Promise<{ containerId: string }> },
+	{ logger, requestId }: RouteContext,
 ) {
-	const auth = await authenticateApiKey(request);
+	const auth = await authenticateApiKey(request, requestId);
 	if (!auth) {
 		return Response.json(
 			{ error: "Invalid or missing API key" },
@@ -61,6 +75,13 @@ export async function POST(
 				},
 			})
 			.returning();
+		logger.info("post.published", "Media was published and the post was saved", {
+			appId: auth.appId,
+			postId: post.id,
+			platform: providerName,
+			containerId,
+			stateSaved: true,
+		});
 
 		return Response.json({
 			id: post.id,
@@ -68,6 +89,12 @@ export async function POST(
 			providerMediaId: published.id,
 		});
 	} catch (err) {
+		logger.error(
+			"post.publish_failed",
+			"Media publishing or post persistence failed",
+			err,
+			{ appId: auth.appId, platform: providerName, containerId },
+		);
 		return Response.json(
 			{
 				containerId,

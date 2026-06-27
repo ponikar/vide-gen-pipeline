@@ -4,6 +4,7 @@ import busboy from 'busboy';
 import { getProvider } from '../../src/social/registry.js';
 import { db, schema } from '../../src/db/index.js';
 import { eq } from 'drizzle-orm';
+import { withVercelLogging } from '../../src/vercel-logging.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -13,7 +14,7 @@ const supabase = createClient(
 const BUCKET = 'videos';
 const POLL_TIMEOUT_MS = 8000;
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
@@ -119,6 +120,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(500).json({ error: message });
   }
 }
+
+export default withVercelLogging('api.content.post', handler);
 
 function parseMultipart(
   req: VercelRequest,

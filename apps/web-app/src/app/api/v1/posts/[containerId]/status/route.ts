@@ -3,14 +3,28 @@ import { db } from "@/db";
 import { connectedAccounts } from "@/db/schema";
 import { authenticateApiKey } from "@/lib/api-key-auth";
 import { InstagramProvider } from "@/lib/instagram";
+import {
+	type RouteContext,
+	withRouteLogging,
+} from "@/server/http-logging";
 
 const provider = new InstagramProvider();
 
-export async function GET(
+export function GET(
+	request: Request,
+	route: { params: Promise<{ containerId: string }> },
+) {
+	return withRouteLogging("api.v1.posts.status", request, (context) =>
+		handleGet(request, route, context),
+	);
+}
+
+async function handleGet(
 	request: Request,
 	{ params }: { params: Promise<{ containerId: string }> },
+	{ logger, requestId }: RouteContext,
 ) {
-	const auth = await authenticateApiKey(request);
+	const auth = await authenticateApiKey(request, requestId);
 	if (!auth) {
 		return Response.json(
 			{ error: "Invalid or missing API key" },
@@ -46,6 +60,12 @@ export async function GET(
 		);
 		return Response.json({ containerId, ...status });
 	} catch (err) {
+		logger.error(
+			"post.status_failed",
+			"Media status request failed",
+			err,
+			{ appId: auth.appId, platform: providerName, containerId },
+		);
 		return Response.json(
 			{ containerId, error: err instanceof Error ? err.message : String(err) },
 			{ status: 502 },

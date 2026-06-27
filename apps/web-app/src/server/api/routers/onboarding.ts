@@ -63,8 +63,6 @@ const manualAppInfoSchema = z.object({
 		.describe("Real situations where people would use the app."),
 });
 
-const LOG_PREFIX = "[onboarding.chat]";
-
 const ONBOARDING_PROMPT = `You are GoldFish, a concise onboarding assistant that helps users set up an app profile.
 
 Your job:
@@ -78,22 +76,6 @@ Your job:
 - If a pending app profile is provided and the user's latest message confirms it looks correct, call confirmAppInfo.
 - If a pending app profile is provided and the user gives corrections, call refineManualAppInfo with the corrected full profile and ask for confirmation again.
 - Never output JSON, markdown code blocks, or hidden machine-readable state. Talk to the user naturally.`;
-
-function preview(value: string, max = 160) {
-	const normalized = value.replace(/\s+/g, " ").trim();
-	return normalized.length > max ? `${normalized.slice(0, max)}...` : normalized;
-}
-
-function logInfo(event: string, data?: Record<string, unknown>) {
-	console.info(LOG_PREFIX, event, data ?? {});
-}
-
-function logError(event: string, error: unknown, data?: Record<string, unknown>) {
-	console.error(LOG_PREFIX, event, {
-		...(data ?? {}),
-		error: error instanceof Error ? error.message : String(error),
-	});
-}
 
 function isScrapedInfo(value: unknown): value is ScrapedInfo {
 	const data = scrapedInfoSchema.safeParse(value);
@@ -148,19 +130,26 @@ export const onboardingRouter = router({
 				pendingAppInfo: scrapedInfoSchema.optional(),
 			}),
 		)
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
+			const logInfo = (event: string, data?: Record<string, unknown>) =>
+				ctx.logger.info(`onboarding.${event}`, "Onboarding operation progressed", data);
+			const logError = (
+				event: string,
+				error: unknown,
+				data?: Record<string, unknown>,
+			) =>
+				ctx.logger.error(
+					`onboarding.${event}`,
+					"Onboarding operation failed",
+					error,
+					data,
+				);
 			try {
 				let appInfo: ScrapedInfo | undefined;
 				let confirmedInfo: ScrapedInfo | undefined;
-				const latestUserMessage = [...input.messages]
-					.reverse()
-					.find((message) => message.role === "user");
 
 				logInfo("request.start", {
 					messageCount: input.messages.length,
-					latestUserPreview: latestUserMessage
-						? preview(latestUserMessage.content)
-						: "",
 				});
 
 				const result = await generateText({
@@ -209,7 +198,6 @@ ${JSON.stringify(input.pendingAppInfo)}`
 								appInfo = refinedInfo;
 								logInfo("tool.refineManualAppInfo.done", {
 									name: refinedInfo.name,
-									descriptionPreview: preview(refinedInfo.description),
 								});
 								return refinedInfo;
 							},
@@ -237,7 +225,6 @@ ${JSON.stringify(input.pendingAppInfo)}`
 				});
 
 				logInfo("llm.done", {
-					textPreview: preview(result.text),
 					stepCount: result.steps.length,
 					toolCallCount: result.steps.reduce(
 						(count, step) => count + step.toolCalls.length,
