@@ -7,7 +7,7 @@ import { protectedProcedure, router } from "@/server/trpc";
 import {
 	REQUEST_ID_HEADER,
 	safeErrorMessage,
-} from "../../../../../../src/logger";
+} from "@/logger";
 
 const previewPayloadSchema = z.object({
 	video: z.string().url(),

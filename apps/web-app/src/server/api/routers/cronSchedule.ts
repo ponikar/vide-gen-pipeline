@@ -10,7 +10,7 @@ import {
 	videoJobs,
 } from "@/db/schema";
 import { protectedProcedure, router } from "@/server/trpc";
-import { REQUEST_ID_HEADER } from "../../../../../../src/logger";
+import { REQUEST_ID_HEADER } from "@/logger";
 
 const AGENT_WORKER_URL =
 	process.env.AGENT_WORKER ?? "http://localhost:3002";
