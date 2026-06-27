@@ -6,6 +6,7 @@ import {
 	Check,
 	Clock,
 	Copy,
+	Clapperboard,
 	Loader2,
 	Sparkles,
 	ThumbsUp,
@@ -683,6 +684,13 @@ export default function AppDetailPage() {
 					</button>
 				</div>
 				<div className="mt-4 flex gap-2">
+					<Link
+						href={`/dashboard/${appId}/create`}
+						className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+					>
+						<Clapperboard className="h-3.5 w-3.5" />
+						Create Post
+					</Link>
 					<Link
 						href={`/dashboard/${appId}/analytics`}
 						className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"

@@ -30,7 +30,7 @@ export class TikTokClient {
 			data?: T;
 			error?: { code: string; message: string };
 		};
-		if (json.error)
+		if (json.error && json.error.code !== "ok")
 			throw new Error(
 				`TikTok error: ${json.error.code} - ${json.error.message}`,
 			);
@@ -65,7 +65,7 @@ export class TikTokClient {
 			data?: T;
 			error?: { code: string; message: string };
 		};
-		if (json.error)
+		if (json.error && json.error.code !== "ok")
 			throw new Error(
 				`TikTok error: ${json.error.code} - ${json.error.message}`,
 			);

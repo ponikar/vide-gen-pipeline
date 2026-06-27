@@ -81,3 +81,67 @@ export async function postReel(
 
 	throw new Error("TikTok publish timed out");
 }
+
+export async function uploadDraft(
+	client: TikTokClient,
+	videoUrl: string,
+	onInitialized?: (publishId: string) => Promise<void>,
+): Promise<{ publishId: string }> {
+	const resp = await fetch(videoUrl);
+	if (!resp.ok) throw new Error(`Failed to download video: ${resp.status}`);
+	const videoBuffer = Buffer.from(await resp.arrayBuffer());
+	const videoSize = videoBuffer.length;
+
+	const initResult = await client.post<{
+		upload_url: string;
+		publish_id: string;
+	}>("/post/publish/inbox/video/init/", {
+		source_info: {
+			source: "FILE_UPLOAD",
+			video_size: videoSize,
+			chunk_size: videoSize,
+			total_chunk_count: 1,
+		},
+	});
+
+	await onInitialized?.(initResult.publish_id);
+
+	const uploadRes = await fetch(initResult.upload_url, {
+		method: "PUT",
+		headers: {
+			"Content-Type": "video/mp4",
+			"Content-Length": String(videoSize),
+			"Content-Range": `bytes 0-${videoSize - 1}/${videoSize}`,
+		},
+		body: videoBuffer,
+	});
+	if (!uploadRes.ok) {
+		const text = await uploadRes.text();
+		throw new Error(`TikTok upload failed (${uploadRes.status}): ${text}`);
+	}
+
+	for (let attempt = 0; attempt < POLL_RETRIES; attempt++) {
+		const status = await client.post<{
+			status: string;
+			fail_reason?: string;
+		}>("/post/publish/status/fetch/", {
+			publish_id: initResult.publish_id,
+		});
+
+		if (
+			status.status === "SEND_TO_USER_INBOX" ||
+			status.status === "PUBLISH_COMPLETE"
+		) {
+			return { publishId: initResult.publish_id };
+		}
+		if (status.status === "FAILED") {
+			throw new Error(
+				`TikTok draft upload failed: ${status.fail_reason ?? "Unknown"}`,
+			);
+		}
+
+		await sleep(POLL_INTERVAL_MS);
+	}
+
+	throw new Error("TikTok draft upload timed out");
+}

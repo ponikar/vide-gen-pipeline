@@ -66,6 +66,7 @@ export const posts = pgTable("posts", {
 	comments: integer("comments").default(0).notNull(),
 	shares: integer("shares").default(0).notNull(),
 	reach: integer("reach"),
+	scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
 	createdAt: timestamp("created_at", { withTimezone: true })
 		.defaultNow()
 		.notNull(),

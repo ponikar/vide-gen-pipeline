@@ -1,7 +1,14 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { apps, connectedAccounts, cronSchedules } from "@/db/schema";
+import {
+	apps,
+	connectedAccounts,
+	cronSchedules,
+	posts,
+	videoJobs,
+} from "@/db/schema";
 import { protectedProcedure, router } from "@/server/trpc";
 import { REQUEST_ID_HEADER } from "../../../../../../src/logger";
 
@@ -31,6 +38,17 @@ async function notifyAgentWorker(
 
 function generateSecret(): string {
 	return randomBytes(32).toString("hex");
+}
+
+function validateTimezone(timezone: string): void {
+	try {
+		new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format();
+	} catch {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Invalid timezone",
+		});
+	}
 }
 
 export const cronScheduleRouter = router({
@@ -131,6 +149,189 @@ export const cronScheduleRouter = router({
 			};
 		}),
 
+	schedulePost: protectedProcedure
+		.input(
+			z.object({
+				appId: z.string().uuid(),
+				videoJobId: z.string().uuid(),
+				scheduledAt: z.date(),
+				timezone: z.string().min(1),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			validateTimezone(input.timezone);
+			if (input.scheduledAt.getTime() < Date.now() + 2 * 60 * 1000) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Choose a time at least two minutes from now.",
+				});
+			}
+
+			const [job] = await ctx.db
+				.select({
+					id: videoJobs.id,
+					status: videoJobs.status,
+					outputUrl: videoJobs.outputUrl,
+					generationParams: videoJobs.generationParams,
+					cronScheduleId: videoJobs.cronScheduleId,
+				})
+				.from(videoJobs)
+				.innerJoin(apps, eq(videoJobs.appId, apps.id))
+				.where(
+					and(
+						eq(videoJobs.id, input.videoJobId),
+						eq(videoJobs.appId, input.appId),
+						eq(apps.clerkUserId, ctx.clerkUserId),
+					),
+				);
+			if (!job) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
+			}
+			if (job.status !== "done" || !job.outputUrl) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "The video must finish generating before it can be scheduled.",
+				});
+			}
+			if (job.cronScheduleId) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "This video is already scheduled.",
+				});
+			}
+
+			const [tiktokAccount] = await ctx.db
+				.select({ id: connectedAccounts.id })
+				.from(connectedAccounts)
+				.where(
+					and(
+						eq(connectedAccounts.appId, input.appId),
+						eq(connectedAccounts.provider, "tiktok"),
+					),
+				);
+			if (!tiktokAccount) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Connect your TikTok account before scheduling.",
+				});
+			}
+
+			const params = job.generationParams ?? {};
+			const meta =
+				typeof params.meta === "object" && params.meta !== null
+					? (params.meta as Record<string, unknown>)
+					: {};
+			const idea =
+				typeof meta.idea === "string" ? meta.idea : "Generated TikTok video";
+			if (meta.flow !== "on_demand") {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Only user-approved videos can be scheduled here.",
+				});
+			}
+
+			const timeParts = new Intl.DateTimeFormat("en-GB", {
+				timeZone: input.timezone,
+				hour: "2-digit",
+				minute: "2-digit",
+				hourCycle: "h23",
+			}).formatToParts(input.scheduledAt);
+			const hour = timeParts.find((part) => part.type === "hour")?.value;
+			const minute = timeParts.find((part) => part.type === "minute")?.value;
+			if (!hour || !minute) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Could not resolve the selected local time.",
+				});
+			}
+
+			const scheduleId = randomUUID();
+			const secret = generateSecret();
+			let postId: string | null = null;
+
+			try {
+				const [post] = await ctx.db
+					.insert(posts)
+					.values({
+						appId: input.appId,
+						title: idea.slice(0, 200),
+						description:
+							typeof meta.videoDescription === "string"
+								? meta.videoDescription
+								: null,
+						platform: "tiktok",
+						videoJobId: job.id,
+						status: "scheduled",
+						type: "user_approved",
+						scheduledAt: input.scheduledAt,
+						meta: {
+							outputUrl: job.outputUrl,
+							timezone: input.timezone,
+						},
+					})
+					.returning({ id: posts.id });
+				postId = post.id;
+
+				await ctx.db.insert(cronSchedules).values({
+					id: scheduleId,
+					appId: input.appId,
+					name: "Approved TikTok post",
+					scheduleTime: `${hour}:${minute}`,
+					scheduleDays: ["once"],
+					timezone: input.timezone,
+					socialPlatforms: ["tiktok"],
+					webhookSecret: secret,
+				});
+
+				await ctx.db
+					.update(videoJobs)
+					.set({ cronScheduleId: scheduleId })
+					.where(eq(videoJobs.id, job.id));
+
+				await notifyAgentWorker("/api/schedules", ctx.requestId, {
+					schedule_id: scheduleId,
+					secret,
+					schedule_time: `${hour}:${minute}`,
+					schedule_days: ["once"],
+					timezone: input.timezone,
+					social_platforms: ["tiktok"],
+					scheduled_at: input.scheduledAt.toISOString(),
+				});
+			} catch (error) {
+				await ctx.db
+					.update(videoJobs)
+					.set({ cronScheduleId: null })
+					.where(eq(videoJobs.id, job.id));
+				await ctx.db
+					.delete(cronSchedules)
+					.where(eq(cronSchedules.id, scheduleId));
+				if (postId) {
+					await ctx.db.delete(posts).where(eq(posts.id, postId));
+				}
+				throw error;
+			}
+
+			ctx.logger.info(
+				"schedule.post_created",
+				"User-approved TikTok post was scheduled",
+				{
+					appId: input.appId,
+					postId,
+					scheduleId,
+					scheduledAt: input.scheduledAt,
+					timezone: input.timezone,
+					stateSaved: true,
+				},
+			);
+
+			return {
+				postId: postId!,
+				scheduleId,
+				scheduledAt: input.scheduledAt,
+				timezone: input.timezone,
+			};
+		}),
+
 	list: protectedProcedure
 		.input(z.object({ appId: z.string().uuid() }))
 		.query(async ({ ctx, input }) => {
@@ -155,7 +356,12 @@ export const cronScheduleRouter = router({
 					createdAt: cronSchedules.createdAt,
 				})
 				.from(cronSchedules)
-				.where(eq(cronSchedules.appId, input.appId))
+				.where(
+					and(
+						eq(cronSchedules.appId, input.appId),
+						sql`NOT ('once' = ANY(${cronSchedules.scheduleDays}))`,
+					),
+				)
 				.orderBy(cronSchedules.createdAt);
 		}),
 

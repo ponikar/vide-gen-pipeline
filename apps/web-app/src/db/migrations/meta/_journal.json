@@ -64,6 +64,13 @@
 			"when": 1782886400000,
 			"tag": "0008_add_video_job_phase",
 			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1782930000000,
+			"tag": "0009_add_post_schedule",
+			"breakpoints": true
 		}
 	]
 }

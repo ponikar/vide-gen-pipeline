@@ -36,6 +36,21 @@ Operational Logging Final Hardening and Verification (2026-06-27, iteration 4)
 - The new migration is checked in but was not applied to any live database.
 - Final verification: all 30 Vitest tests pass; root, agent-worker, and video-server typechecks pass; migration journal parsing and `git diff --check` pass. Web-app typecheck still reports only the two pre-existing unrelated `LandingPage.tsx` `clientX/clientY` errors.
 - Files modified in this iteration: `src/logger.ts`, agent/video state and pipeline modules, preview status persistence, `tests/logger.test.ts`, `tests/agent-worker-state.test.ts`, `tests/http-logging.test.ts`, `tests/video-queue.test.ts`, and `codemap.md`.
+
+Next.js Logger Module Resolution Fix (2026-06-27)
+- Root cause: web-app imports referenced the shared TypeScript logger with a `.js` suffix. TypeScript typechecking accepted the substitution, but the Next.js webpack resolver looked for a real external `.js` file and failed.
+- Changed every web-app shared-logger import to an extensionless TypeScript-compatible specifier. Agent-worker, video-server, and legacy Node API imports keep `.js` because they run through NodeNext/tsx resolution.
+- Verification: Next.js 15 dev server compiled `/api/trpc/[trpc]` successfully; a live `app.list` request reached tRPC, returned the expected unauthenticated 401, preserved `x-request-id`, and emitted the correlated structured log. No module-resolution error remains.
+- Files modified in this iteration: `apps/web-app/src/server/http-logging.ts`, `apps/web-app/src/server/trpc.ts`, `apps/web-app/src/lib/api-key-auth.ts`, `apps/web-app/src/server/api/routers/cronSchedule.ts`, `apps/web-app/src/server/api/routers/videoGeneration.ts`, `apps/web-app/src/app/api/trpc/[trpc]/route.ts`, and `codemap.md`.
+
+User-Approved TikTok Draft Scheduling (2026-06-27)
+- Added a minimal per-app Create Post flow that reuses the onboarding preview endpoint, existing video-server queue/status polling, `video_jobs`, `posts`, `cron_schedules`, and the existing agent-worker crontab/nudge path. No feature-specific table or scheduler was added.
+- On-demand preview requests generate one video. The user's idea is embedded as explicit required creative context for research, hooks, scripts, and background selection, and is stored with `flow: "on_demand"` so these jobs do not appear in onboarding fine-tuning.
+- Approved videos are saved in `posts` with a real `scheduled_at` timestamp and linked to the existing cron schedule through `video_jobs.cron_schedule_id`. One-time cron nudges upload the rendered MP4 to TikTok Inbox, save the publish ID, update `scheduled`/`uploading`/`sent_to_inbox` or `failed`, disable the schedule, and remove its cron entry.
+- TikTok Inbox upload uses the current `/v2/post/publish/inbox/video/init/` and `/v2/post/publish/status/fetch/` endpoints. The TikTok client now accepts the provider's normal `{ error: { code: "ok" } }` success envelope.
+- Added migration `0009_add_post_schedule.sql`. It is checked in but was not applied to a live database.
+- Verification: agent-worker and video-server typechecks pass; all 32 Vitest tests pass, including new TikTok Inbox upload coverage; `git diff --check` passes. Web-app typecheck still reports only the two known unrelated `LandingPage.tsx` event typing errors.
+- Files modified in this iteration: `apps/agent-worker/src/fine-tune.ts`, `apps/agent-worker/src/index.ts`, `apps/agent-worker/src/scheduled-post.ts`, `apps/web-app/src/app/dashboard/[appId]/create/page.tsx`, `apps/web-app/src/app/dashboard/[appId]/page.tsx`, `apps/web-app/src/db/schema.ts`, `apps/web-app/src/db/migrations/0009_add_post_schedule.sql`, `apps/web-app/src/db/migrations/meta/_journal.json`, `apps/web-app/src/server/api/routers/videoGeneration.ts`, `apps/web-app/src/server/api/routers/cronSchedule.ts`, `apps/web-app/src/server/api/routers/analytics.ts`, `src/tiktok/client.ts`, `src/tiktok/post.ts`, `tests/tiktok-draft.test.ts`, and `codemap.md`.
 Storage: Rendered MP4s uploaded to Supabase Storage (videos bucket). Local filesystem outputs are temporary. SUPABASE_URL = https://hlneqkcervrvftffotxn.supabase.co.
 Landing Page (Root /)
 - No Clerk redirect — root shows a marketing landing page

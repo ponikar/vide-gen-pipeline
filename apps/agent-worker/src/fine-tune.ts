@@ -35,10 +35,12 @@ export type OnboardingPreviewPayload = {
 		videoDescription: string;
 		videoCategory: string;
 		backgroundVideo: BackgroundVideoOption & { reasoning: string };
+		flow?: "on_demand";
+		idea?: string;
 	};
 };
 
-type PreviewCount = 3 | 4;
+type PreviewCount = 1 | 3 | 4;
 type VideoCategory = "subway_surfers" | "minecraft_parkour";
 
 function appProfile(app: AppRow): string {
@@ -87,6 +89,7 @@ export async function generateOnboardingPreviewPayloads(
 	appId: string,
 	count: PreviewCount = 3,
 	logger?: Logger,
+	creativeIdea?: string,
 ): Promise<OnboardingPreviewPayload[]> {
 	logger?.info(
 		"preview.profile_loading",
@@ -103,9 +106,18 @@ export async function generateOnboardingPreviewPayloads(
 	const hookCheatSheet = getHookCheatSheet();
 	const dialogueRules = getDialogueRules();
 	const backgroundVideoOptions = getBackgroundVideoOptions();
-	const profile = appProfile(app as AppRow);
-	const onboardingContext =
-		"New app, no performance history yet. Generate initial onboarding preview directions from the app profile only.";
+	const baseProfile = appProfile(app as AppRow);
+	const profile = creativeIdea
+		? `${baseProfile}
+
+User-requested creative context:
+${creativeIdea}
+
+The video must be about this exact idea. Use the app profile only to make the idea relevant to the product. Do not replace the idea with a generic app promotion.`
+		: baseProfile;
+	const onboardingContext = creativeIdea
+		? `The user explicitly requested this video idea: "${creativeIdea}". Treat it as the required topic for the hook, script, and creative direction.`
+		: "New app, no performance history yet. Generate initial onboarding preview directions from the app profile only.";
 	const researchResult = await research(
 		(app as AppRow).name,
 		profile,
@@ -196,6 +208,9 @@ export async function generateOnboardingPreviewPayloads(
 				videoDescription: scriptResult.videoDescription,
 				videoCategory,
 				backgroundVideo: selectedBackgroundVideo,
+				...(creativeIdea
+					? { flow: "on_demand" as const, idea: creativeIdea }
+					: {}),
 			},
 		});
 		logger?.info("preview.script_completed", "Preview payload is ready", {

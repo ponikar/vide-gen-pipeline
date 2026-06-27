@@ -62,6 +62,7 @@ export const analyticsRouter = router({
 					and(
 						eq(cronSchedules.appId, input.appId),
 						eq(cronSchedules.enabled, true),
+						sql`NOT ('once' = ANY(${cronSchedules.scheduleDays}))`,
 					),
 				)
 				.limit(1);

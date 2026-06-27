@@ -14,6 +14,7 @@ import {
 import { createDb } from "./db.js";
 import { generateOnboardingPreviewPayloads } from "./fine-tune.js";
 import { runPipeline } from "./orchestrator.js";
+import { uploadScheduledPost } from "./scheduled-post.js";
 
 const db = createDb();
 type AppEnv = {
@@ -33,7 +34,21 @@ const DAY_MAP: Record<string, string> = {
 	sun: "0", mon: "1", tue: "2", wed: "3", thu: "4", fri: "5", sat: "6",
 };
 
-function crontabLine(id: string, secret: string, time: string, days: string[]) {
+function crontabLine(
+	id: string,
+	secret: string,
+	time: string,
+	days: string[],
+	scheduledAt?: string,
+) {
+	if (days.includes("once")) {
+		if (!scheduledAt) throw new Error("One-time schedules require scheduled_at");
+		const date = new Date(scheduledAt);
+		if (Number.isNaN(date.getTime())) throw new Error("Invalid scheduled_at");
+		if (date.getTime() <= Date.now()) throw new Error("scheduled_at must be in the future");
+		return `${date.getMinutes()} ${date.getHours()} ${date.getDate()} ${date.getMonth() + 1} * ${NUDGE_CMD} ${id} ${secret}`;
+	}
+
 	const [hour, minute] = time.split(":");
 	const dow =
 		days.includes("daily")
@@ -121,7 +136,8 @@ app.use("/*", async (c, next) => {
 
 const onboardingPreviewRequestSchema = z.object({
 	app_id: z.string().min(1),
-	count: z.union([z.literal(3), z.literal(4)]).default(3),
+	count: z.union([z.literal(1), z.literal(3), z.literal(4)]).default(3),
+	idea: z.string().trim().min(1).max(2000).optional(),
 });
 
 app.post("/api/onboarding/preview-payloads", async (c) => {
@@ -135,6 +151,7 @@ app.post("/api/onboarding/preview-payloads", async (c) => {
 			input.app_id,
 			input.count,
 			previewLogger,
+			input.idea,
 		);
 		previewLogger.info("preview.request_completed", "Preview request completed", {
 			previewCount: payloads.length,
@@ -176,7 +193,7 @@ app.post("/nudge", async (c) => {
 		const scheduleLogger = requestLogger.child({ scheduleId: schedule_id });
 
 		const schedules = await db`
-      SELECT id, app_id, social_platforms, webhook_secret, enabled
+      SELECT id, app_id, social_platforms, webhook_secret, enabled, schedule_days
       FROM cron_schedules WHERE id = ${schedule_id}
     `;
 
@@ -202,6 +219,7 @@ app.post("/nudge", async (c) => {
 		const platforms = schedule.social_platforms
 			? (schedule.social_platforms as string[])
 			: ["instagram"];
+		const scheduleDays = schedule.schedule_days as string[];
 
 		const [savedSchedule] = await db`
 			UPDATE cron_schedules
@@ -219,21 +237,54 @@ app.post("/nudge", async (c) => {
 			},
 		);
 
-		void runPipeline(
-			db,
-			schedule.id as string,
-			schedule.app_id as string,
-			platforms,
-			videoServerUrl,
-			c.get("requestId"),
-		).catch((err: unknown) => {
-			scheduleLogger.error(
-				"pipeline.background_failed",
-				"Background pipeline failed",
-				err,
-				{ appId: schedule.app_id },
-			);
-		});
+		if (scheduleDays.includes("once")) {
+			void uploadScheduledPost(
+				db,
+				schedule.id as string,
+				c.get("requestId"),
+			)
+				.catch((err: unknown) => {
+					scheduleLogger.error(
+						"scheduled_post.background_failed",
+						"Scheduled TikTok upload failed",
+						err,
+						{ appId: schedule.app_id },
+					);
+				})
+				.finally(async () => {
+					try {
+						await db`
+							UPDATE cron_schedules
+							SET enabled = false, updated_at = NOW()
+							WHERE id = ${schedule_id}
+						`;
+						crontabRemove(schedule_id);
+					} catch (cleanupError) {
+						scheduleLogger.error(
+							"scheduled_post.cleanup_failed",
+							"One-time schedule cleanup failed",
+							cleanupError,
+							{ appId: schedule.app_id },
+						);
+					}
+				});
+		} else {
+			void runPipeline(
+				db,
+				schedule.id as string,
+				schedule.app_id as string,
+				platforms,
+				videoServerUrl,
+				c.get("requestId"),
+			).catch((err: unknown) => {
+				scheduleLogger.error(
+					"pipeline.background_failed",
+					"Background pipeline failed",
+					err,
+					{ appId: schedule.app_id },
+				);
+			});
+		}
 
 		return c.json({ ok: true });
 	} catch (err) {
@@ -245,12 +296,20 @@ app.post("/nudge", async (c) => {
 
 app.post("/api/schedules", async (c) => {
 	const requestLogger = logger.child({ requestId: c.get("requestId") });
-	const { schedule_id, secret, schedule_time, schedule_days, timezone } = await c.req.json<{
+	const {
+		schedule_id,
+		secret,
+		schedule_time,
+		schedule_days,
+		timezone,
+		scheduled_at,
+	} = await c.req.json<{
 		schedule_id?: string;
 		secret?: string;
 		schedule_time?: string;
 		schedule_days?: string[];
 		timezone?: string;
+		scheduled_at?: string;
 	}>();
 
 	if (!schedule_id || !secret || !schedule_time || !schedule_days) {
@@ -259,8 +318,18 @@ app.post("/api/schedules", async (c) => {
 	}
 
 	try {
-		const line = crontabLine(schedule_id, secret, schedule_time, schedule_days);
+		const line = crontabLine(
+			schedule_id,
+			secret,
+			schedule_time,
+			schedule_days,
+			scheduled_at,
+		);
 		const mode = crontabAdd(line);
+		if (mode !== "crontab") {
+			crontabRemove(schedule_id);
+			throw new Error("System crontab is unavailable");
+		}
 		requestLogger.info("scheduler.schedule_saved", "Schedule configuration saved", {
 			scheduleId: schedule_id,
 			scheduleTime: schedule_time,
@@ -275,6 +344,8 @@ app.post("/api/schedules", async (c) => {
 			err,
 			{ scheduleId: schedule_id },
 		);
+		const message = err instanceof Error ? err.message : String(err);
+		return c.json({ error: message }, 500);
 	}
 
 	return c.json({ ok: true, id: schedule_id });

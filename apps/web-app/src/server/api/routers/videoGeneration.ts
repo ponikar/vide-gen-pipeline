@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
-import { apps, videoJobs } from "@/db/schema";
+import { apps, connectedAccounts, videoJobs } from "@/db/schema";
 import { env } from "@/env";
 import { protectedProcedure, router } from "@/server/trpc";
 import {
@@ -30,6 +30,8 @@ const previewPayloadSchema = z.object({
 		videoType: z.string(),
 		videoDescription: z.string(),
 		videoCategory: z.string(),
+		flow: z.literal("on_demand").optional(),
+		idea: z.string().optional(),
 	}),
 });
 
@@ -78,6 +80,7 @@ async function readError(res: Response): Promise<string> {
 async function getPreviewPayloads(
 	appId: string,
 	requestId: string,
+	idea?: string,
 ): Promise<PreviewPayload[]> {
 	const res = await fetch(`${env.AGENT_WORKER}/api/onboarding/preview-payloads`, {
 		method: "POST",
@@ -85,7 +88,11 @@ async function getPreviewPayloads(
 			"Content-Type": "application/json",
 			[REQUEST_ID_HEADER]: requestId,
 		},
-		body: JSON.stringify({ app_id: appId, count: DEFAULT_PREVIEW_COUNT }),
+		body: JSON.stringify({
+			app_id: appId,
+			count: idea ? 1 : DEFAULT_PREVIEW_COUNT,
+			...(idea ? { idea } : {}),
+		}),
 	});
 
 	if (!res.ok) {
@@ -149,7 +156,12 @@ function toPreviewStatus(job: {
 
 export const videoGenerationRouter = router({
 	generate: protectedProcedure
-		.input(z.object({ appId: z.string().uuid() }))
+		.input(
+			z.object({
+				appId: z.string().uuid(),
+				idea: z.string().trim().min(1).max(2000).optional(),
+			}),
+		)
 		.mutation(async ({ ctx, input }) => {
 			const [app] = await ctx.db
 				.select()
@@ -162,19 +174,43 @@ export const videoGenerationRouter = router({
 				throw new TRPCError({ code: "NOT_FOUND", message: "App not found" });
 			}
 
-			if (app.fineTuned) {
+			if (!input.idea && app.fineTuned) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
 					message: "Already fine-tuned",
 				});
 			}
 
+			if (input.idea) {
+				const [tiktokAccount] = await ctx.db
+					.select({ id: connectedAccounts.id })
+					.from(connectedAccounts)
+					.where(
+						and(
+							eq(connectedAccounts.appId, app.id),
+							eq(connectedAccounts.provider, "tiktok"),
+						),
+					);
+				if (!tiktokAccount) {
+					throw new TRPCError({
+						code: "PRECONDITION_FAILED",
+						message: "Connect your TikTok account before generating a post.",
+					});
+				}
+			}
+
 			ctx.logger.info(
 				"preview.generation_started",
-				"Generating onboarding video previews",
-				{ appId: app.id },
+				input.idea
+					? "Generating an on-demand video preview"
+					: "Generating onboarding video previews",
+				{ appId: app.id, flow: input.idea ? "on_demand" : "onboarding" },
 			);
-			const payloads = await getPreviewPayloads(app.id, ctx.requestId);
+			const payloads = await getPreviewPayloads(
+				app.id,
+				ctx.requestId,
+				input.idea,
+			);
 			ctx.logger.info(
 				"preview.payloads_received",
 				"Agent worker returned preview payloads",
@@ -252,8 +288,18 @@ export const videoGenerationRouter = router({
 		}),
 
 	list: protectedProcedure
-		.input(z.object({ appId: z.string().uuid() }))
+		.input(
+			z.object({
+				appId: z.string().uuid(),
+				flow: z.enum(["onboarding", "on_demand"]).default("onboarding"),
+			}),
+		)
 		.query(async ({ ctx, input }) => {
+			const flowFilter =
+				input.flow === "on_demand"
+					? sql`${videoJobs.generationParams}->'meta'->>'flow' = 'on_demand'`
+					: sql`coalesce(${videoJobs.generationParams}->'meta'->>'flow', 'onboarding') <> 'on_demand'`;
+
 			return await ctx.db
 				.select({
 					id: videoJobs.id,
@@ -273,6 +319,7 @@ export const videoGenerationRouter = router({
 					and(
 						eq(videoJobs.appId, input.appId),
 						eq(apps.clerkUserId, ctx.clerkUserId),
+						flowFilter,
 					),
 				)
 				.orderBy(videoJobs.createdAt);
