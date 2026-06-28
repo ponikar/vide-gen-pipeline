@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Privacy Policy — Vid-Gen-Scale",
+  title: "Privacy Policy — AttentionSpam",
   description:
-    "How Vid-Gen-Scale collects, uses, and protects your data — including the access we use to post to your connected TikTok and Instagram accounts.",
+    "How AttentionSpam collects, uses, and protects your data — including the access we use to post to your connected TikTok and Instagram accounts.",
 };
 
 const Bird = ({ size = 20 }) => (
@@ -21,7 +21,7 @@ export default function Privacy() {
       <header className="legal-nav">
         <Link className="nav-brand" href="/#top">
           <Bird size={20} />
-          <span>Vid-Gen-Scale</span>
+          <span>AttentionSpam</span>
         </Link>
         <Link href="/#footer" className="btn btn-light">Get Early Access</Link>
       </header>
@@ -32,10 +32,10 @@ export default function Privacy() {
           <h1>Privacy Policy</h1>
           <p className="legal-updated">Last updated: June 28, 2026</p>
           <p className="legal-intro">
-            This Privacy Policy explains how Vid-Gen-Scale (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or
+            This Privacy Policy explains how AttentionSpam (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or
             &ldquo;our&rdquo;) collects, uses, shares, and protects your information when you use our
             service — the automated content engine that scripts, generates, and posts short-form
-            videos to your connected social accounts. By using Vid-Gen-Scale, you agree to the
+            videos to your connected social accounts. By using AttentionSpam, you agree to the
             practices described here.
           </p>
 
@@ -168,7 +168,7 @@ export default function Privacy() {
             </ul>
             <p>
               To exercise any of these rights, contact us at{" "}
-              <a href="mailto:hello@vidgenscale.com">hello@vidgenscale.com</a>. You can also revoke
+              <a href="mailto:hello@attentionspam.com">hello@attentionspam.com</a>. You can also revoke
               our access directly from TikTok or Instagram&apos;s connected-apps settings.
             </p>
           </section>
@@ -205,12 +205,12 @@ export default function Privacy() {
             <h2><span className="num">13</span>Contact us</h2>
             <p>
               Questions about this Privacy Policy or your data? Reach us at{" "}
-              <a href="mailto:hello@vidgenscale.com">hello@vidgenscale.com</a>.
+              <a href="mailto:hello@attentionspam.com">hello@attentionspam.com</a>.
             </p>
           </section>
 
           <div className="legal-foot">
-            <span>© 2026 Vid-Gen-Scale. Built for indie app developers.</span>
+            <span>© 2026 AttentionSpam. Built for indie app developers.</span>
             <Link href="/#top">Back to home →</Link>
           </div>
         </div>

@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Terms & Conditions — Vid-Gen-Scale",
+  title: "Terms & Conditions — AttentionSpam",
   description:
-    "The terms that govern your use of Vid-Gen-Scale — the AI content engine that scripts, generates, and auto-posts videos for app developers.",
+    "The terms that govern your use of AttentionSpam — the AI content engine that scripts, generates, and auto-posts videos for app developers.",
 };
 
 const Bird = ({ size = 20 }) => (
@@ -21,7 +21,7 @@ export default function Terms() {
       <header className="legal-nav">
         <Link className="nav-brand" href="/#top">
           <Bird size={20} />
-          <span>Vid-Gen-Scale</span>
+          <span>AttentionSpam</span>
         </Link>
         <Link href="/#footer" className="btn btn-light">Get Early Access</Link>
       </header>
@@ -33,7 +33,7 @@ export default function Terms() {
           <p className="legal-updated">Last updated: June 28, 2026</p>
           <p className="legal-intro">
             These Terms &amp; Conditions (&ldquo;Terms&rdquo;) govern your access to and use of
-            Vid-Gen-Scale (the &ldquo;Service&rdquo;) — an automated content engine that scripts,
+            AttentionSpam (the &ldquo;Service&rdquo;) — an automated content engine that scripts,
             generates, and posts short-form videos to social platforms on your behalf. By creating
             an account or using the Service, you agree to these Terms. If you don&apos;t agree,
             please don&apos;t use the Service.
@@ -44,7 +44,7 @@ export default function Terms() {
           <section className="legal-section">
             <h2><span className="num">01</span>Who we are &amp; what we do</h2>
             <p>
-              Vid-Gen-Scale (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) provides an
+              AttentionSpam (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) provides an
               AI-powered content pipeline built for app developers. Once you describe your app, the
               Service automatically:
             </p>
@@ -91,7 +91,7 @@ export default function Terms() {
           <section className="legal-section">
             <h2><span className="num">04</span>Your account &amp; connected platforms</h2>
             <p>
-              To use the Service, you authorize Vid-Gen-Scale to connect to your third-party
+              To use the Service, you authorize AttentionSpam to connect to your third-party
               accounts — including <strong>TikTok</strong> and <strong>Instagram</strong> — and to
               create and publish content on your behalf. By connecting these accounts, you confirm
               that:
@@ -193,7 +193,7 @@ export default function Terms() {
             <h2><span className="num">10</span>Intellectual property</h2>
             <p>
               The Service, including its software, design, branding, and underlying technology, is
-              owned by Vid-Gen-Scale and protected by intellectual property laws. These Terms
+              owned by AttentionSpam and protected by intellectual property laws. These Terms
               don&apos;t grant you any rights to our trademarks or branding except as needed to use
               the Service. Subject to your compliance with these Terms, you own the final videos
               produced for your own accounts.
@@ -214,7 +214,7 @@ export default function Terms() {
           <section className="legal-section">
             <h2><span className="num">12</span>Limitation of liability</h2>
             <p>
-              To the maximum extent permitted by law, Vid-Gen-Scale and its team will not be liable
+              To the maximum extent permitted by law, AttentionSpam and its team will not be liable
               for any indirect, incidental, special, consequential, or punitive damages, or for any
               loss of profits, data, goodwill, reach, or account access, arising out of or related
               to your use of the Service. Our total liability for any claim relating to the Service
@@ -226,7 +226,7 @@ export default function Terms() {
           <section className="legal-section">
             <h2><span className="num">13</span>Indemnification</h2>
             <p>
-              You agree to indemnify and hold harmless Vid-Gen-Scale from any claims, damages,
+              You agree to indemnify and hold harmless AttentionSpam from any claims, damages,
               liabilities, and expenses (including reasonable legal fees) arising from Your Content,
               your use of the Service, your violation of these Terms, or your violation of any
               third-party platform&apos;s rules or any law.
@@ -260,7 +260,7 @@ export default function Terms() {
               These Terms are governed by the laws of India, without regard to conflict-of-law
               principles. Any disputes will be resolved in the courts located in Surat, Gujarat,
               India, unless mandatory law in your country of residence requires otherwise.
-              Vid-Gen-Scale is operated by [YOUR LEGAL ENTITY NAME — fill this in before submitting
+              AttentionSpam is operated by [YOUR LEGAL ENTITY NAME — fill this in before submitting
               to TikTok].
             </p>
           </section>
@@ -269,12 +269,12 @@ export default function Terms() {
             <h2><span className="num">17</span>Contact us</h2>
             <p>
               Questions about these Terms? Reach us at{" "}
-              <a href="mailto:hello@vidgenscale.com">hello@vidgenscale.com</a>.
+              <a href="mailto:hello@attentionspam.com">hello@attentionspam.com</a>.
             </p>
           </section>
 
           <div className="legal-foot">
-            <span>© 2026 Vid-Gen-Scale. Built for indie app developers.</span>
+            <span>© 2026 AttentionSpam. Built for indie app developers.</span>
             <Link href="/#top">Back to home →</Link>
           </div>
         </div>

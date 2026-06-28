@@ -16,7 +16,7 @@ export default function Home() {
             <path d="M2 22 L16 4 L30 22 L16 15 Z" fill="#f7f5f2" />
             <path d="M16 15 L16 28" stroke="#f7f5f2" strokeWidth="2.4" fill="none" strokeLinecap="round" />
           </svg>
-          <span className="intro-word">Vid-Gen-Scale</span>
+          <span className="intro-word">AttentionSpam</span>
         </div>
       </div>
 
@@ -27,7 +27,7 @@ export default function Home() {
             <path d="M2 22 L16 4 L30 22 L16 15 Z" fill="#f7f5f2" />
             <path d="M16 15 L16 28" stroke="#f7f5f2" strokeWidth="2.6" fill="none" strokeLinecap="round" />
           </svg>
-          <span>Vid-Gen-Scale</span>
+          <span>AttentionSpam</span>
         </a>
         <nav className="nav-links" id="navLinks">
           <a href="#approach" className="scramble-link"><span className="t1">How It Works</span><span className="t2">How It Works</span></a>
@@ -59,7 +59,7 @@ export default function Home() {
                 <span className="ht-1">You build the app.</span>{" "}
                 <span className="ht-2">We handle the content.</span>
               </h1>
-              <p className="hero-sub">Vid-Gen-Scale automatically scripts, creates, and posts brainrot videos to TikTok and Instagram. Zero effort from you.</p>
+              <p className="hero-sub">AttentionSpam automatically scripts, creates, and posts brainrot videos to TikTok and Instagram. Zero effort from you.</p>
               <div className="hero-actions">
                 <a href="#footer" className="btn btn-light hero-cta">Get Early Access — Free <span className="arr">→</span></a>
                 <a href="#approach" className="btn btn-ghost">See how it works <span className="arr">↓</span></a>
@@ -86,7 +86,7 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="tt-caption">
-                    <div className="tt-user">@vidgenscale</div>
+                    <div className="tt-user">@attentionspam</div>
                     <div className="tt-text">when your app finally finds its audience 🚀 #buildinpublic</div>
                   </div>
                 </div>
@@ -100,7 +100,7 @@ export default function Home() {
         <section className="whatwedo-intro section" id="approach">
           <div className="wrap">
             <div className="label scramble" data-text="How It Works"><span className="dot"></span><span className="label-text">How It Works</span></div>
-            <p className="reveal-text" id="revealText">Growing your app shouldn&apos;t feel like a second job. Vid-Gen-Scale makes it automatic. Through AI scripting, brainrot video generation, and auto-posting — we run the full content pipeline so you don&apos;t have to.</p>
+            <p className="reveal-text" id="revealText">Growing your app shouldn&apos;t feel like a second job. AttentionSpam makes it automatic. Through AI scripting, brainrot video generation, and auto-posting — we run the full content pipeline so you don&apos;t have to.</p>
           </div>
         </section>
 
@@ -301,11 +301,11 @@ export default function Home() {
         {/* COMPARISON */}
         <section className="vs-section section">
           <div className="wrap">
-            <h2 className="vs-title reveal-up">Vid-Gen-Scale VS Doing It Yourself</h2>
+            <h2 className="vs-title reveal-up">AttentionSpam VS Doing It Yourself</h2>
             <div className="vs-table">
               <div className="vs-head">
                 <div className="vs-feat"></div>
-                <div className="vs-col vs-blueprint">Vid-Gen-Scale</div>
+                <div className="vs-col vs-blueprint">AttentionSpam</div>
                 <div className="vs-col">Doing It Yourself<small>You + CapCut</small></div>
                 <div className="vs-col">Freelancers<small>Fiverr, Upwork</small></div>
                 <div className="vs-col">Agencies<small>Social media agencies</small></div>
@@ -347,7 +347,7 @@ export default function Home() {
           <div className="wrap">
             <div className="label scramble center" data-text="Pricing"><span className="dot"></span><span className="label-text">Pricing</span></div>
             <h2 className="pricing-head reveal-up">Free while we&apos;re in early access.</h2>
-            <p className="pricing-sub reveal-up">Vid-Gen-Scale is free to use right now. We&apos;re onboarding founders one by one. Get in early and shape what we build.</p>
+            <p className="pricing-sub reveal-up">AttentionSpam is free to use right now. We&apos;re onboarding founders one by one. Get in early and shape what we build.</p>
             <div className="price-card reveal-up">
               <div className="price-eyebrow">Early Access</div>
               <div className="price-amount">$0<span>/mo</span></div>
@@ -446,7 +446,7 @@ export default function Home() {
               <div className="footer-left">
                 <div className="footer-brand">
                   <svg className="bird" viewBox="0 0 32 32" width="44" height="44"><path d="M2 22 L16 4 L30 22 L16 15 Z" fill="#f7f5f2" /><path d="M16 15 L16 28" stroke="#f7f5f2" strokeWidth="2.2" fill="none" strokeLinecap="round" /></svg>
-                  <span className="footer-wordmark">Vid-Gen-Scale</span>
+                  <span className="footer-wordmark">AttentionSpam</span>
                 </div>
               </div>
               <div className="footer-right">
@@ -462,7 +462,7 @@ export default function Home() {
             </div>
 
             <div className="footer-meta">
-              <span>© 2026 Vid-Gen-Scale. Built for indie app developers.</span>
+              <span>© 2026 AttentionSpam. Built for indie app developers.</span>
               <span className="footer-legal"><a href="/terms">Terms &amp; Conditions</a><a href="/privacy">Privacy Policy</a></span>
             </div>
 
@@ -481,7 +481,7 @@ export default function Home() {
               </div>
               <div className="fl-col">
                 <span className="fl-label">Contact us</span>
-                <a href="mailto:hello@vidgenscale.com">hello@vidgenscale.com</a>
+                <a href="mailto:hello@attentionspam.com">hello@attentionspam.com</a>
               </div>
             </div>
           </div>

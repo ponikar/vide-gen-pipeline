@@ -1,4 +1,3 @@
-import { env } from "@/env";
 import { getAuthUrl } from "@/lib/instagram/auth";
 import {
 	type RouteContext,
@@ -18,7 +17,7 @@ async function handleGet(request: Request, { logger }: RouteContext) {
 		return new Response("Missing appId", { status: 400 });
 	}
 
-	const baseUrl = env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+	const baseUrl = new URL(request.url).origin;
 	const redirectUri = `${baseUrl}/api/auth/instagram/callback`;
 
 	const url = getAuthUrl({

@@ -1,7 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { connectedAccounts } from "@/db/schema";
-import { env } from "@/env";
 import {
 	exchangeCode,
 	getProfile,
@@ -42,7 +41,7 @@ async function handleGet(request: Request, { logger }: RouteContext) {
 		return new Response("Invalid state", { status: 400 });
 	}
 
-	const baseUrl = env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+	const baseUrl = new URL(request.url).origin;
 	try {
 		const token = await exchangeCode({
 			code,

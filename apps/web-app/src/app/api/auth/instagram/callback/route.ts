@@ -1,7 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { connectedAccounts } from "@/db/schema";
-import { env } from "@/env";
 import {
 	exchangeCode,
 	getLongLivedToken,
@@ -33,7 +32,7 @@ async function handleGet(request: Request, { logger }: RouteContext) {
 	}
 
 	const appId = state;
-	const baseUrl = env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+	const baseUrl = new URL(request.url).origin;
 	const redirectUri = `${baseUrl}/api/auth/instagram/callback`;
 
 	try {
