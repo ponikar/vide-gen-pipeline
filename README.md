@@ -1,4 +1,4 @@
-# Gold Fish
+# AttentionSpam
 
 Multi-provider social media API. Post reels and fetch analytics.
 

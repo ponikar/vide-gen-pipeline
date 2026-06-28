@@ -1,5 +1,4 @@
 import { UserButton } from "@clerk/nextjs";
-import { Fish } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardLayout({
@@ -15,8 +14,8 @@ export default function DashboardLayout({
 						href="/dashboard"
 						className="flex items-center gap-2 font-semibold"
 					>
-						<Fish className="h-5 w-5 text-yellow-500" />
-						<span>Gold Fish</span>
+						<img src="/logo.png" alt="AttentionSpam" width="20" height="20" />
+						<span>AttentionSpam</span>
 					</Link>
 					<div className="ml-auto flex items-center gap-4">
 						<UserButton afterSignOutUrl="/sign-in" />

@@ -24,9 +24,9 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata = {
-	title: "Gold Fish — You built the app. Let AI find the audience.",
+	title: "AttentionSpam — You build the app. We handle the content.",
 	description:
-		"Gold Fish posts short-form videos to Instagram & TikTok every week, learns what drives installs, and builds your audience on autopilot.",
+		"AttentionSpam automatically scripts, creates, and posts brainrot videos to TikTok and Instagram. Zero effort from you.",
 };
 
 export default function RootLayout({

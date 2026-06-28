@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self-contained voice cloner for gold-fish pipeline.
+"""Self-contained voice cloner for AttentionSpam pipeline.
 
 Auto-sets up its venv and dependencies on first run.
 If not already running in the venv, creates/sets up the venv

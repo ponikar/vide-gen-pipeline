@@ -1,5 +1,5 @@
 {
-  "name": "gold-fish",
+  "name": "attentionspam",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -26,9 +26,9 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "dev:video": "pnpm --filter @gold-fish/video-server dev",
-    "dev:next": "pnpm --filter @gold-fish/web dev",
-    "dev:agent": "pnpm --filter @gold-fish/agent-worker dev"
+    "dev:video": "pnpm --filter @attentionspam/video-server dev",
+    "dev:next": "pnpm --filter @attentionspam/web dev",
+    "dev:agent": "pnpm --filter @attentionspam/agent-worker dev"
   },
   "dependencies": {
     "@huggingface/transformers": "3.8.1",

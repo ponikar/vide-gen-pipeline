@@ -310,7 +310,7 @@ export default function CreatePostPage() {
 								</div>
 							</div>
 							<p className="text-xs text-muted-foreground">
-								At this time, Gold Fish will send the approved video to your
+								At this time, AttentionSpam will send the approved video to your
 								TikTok Inbox. Open the TikTok notification to review and publish it.
 							</p>
 							<button

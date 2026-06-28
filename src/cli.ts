@@ -16,7 +16,7 @@ async function main(): Promise<void> {
 	}
 
 	const config = await loadInputConfig(args);
-	const tempDir = await mkdtemp(path.join(os.tmpdir(), "gold-fish-"));
+	const tempDir = await mkdtemp(path.join(os.tmpdir(), "attentionspam-"));
 
 	try {
 		await assertBinary("ffmpeg");

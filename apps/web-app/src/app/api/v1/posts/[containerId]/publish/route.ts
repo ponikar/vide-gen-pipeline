@@ -65,7 +65,7 @@ async function handlePost(
 			.insert(posts)
 			.values({
 				appId: auth.appId,
-				title: caption ? caption.slice(0, 200) : "Posted via Gold Fish agent",
+				title: caption ? caption.slice(0, 200) : "Posted via AttentionSpam agent",
 				link: published.permalink ?? null,
 				stats: {
 					provider: providerName,

@@ -1,8 +1,8 @@
-# Gold Fish — Product Requirements
+# AttentionSpam — Product Requirements
 
 ## Overview
 
-Gold Fish is a platform that lets anyone link their social media accounts (Instagram, TikTok) and create "apps." Each app acts as a container that connects a social account to an AI agent. The AI agent posts content on the user's behalf. Users see what happened — post count, stats, analytics — without doing any of the posting themselves.
+AttentionSpam is a platform that lets anyone link their social media accounts (Instagram, TikTok) and create "apps." Each app acts as a container that connects a social account to an AI agent. The AI agent posts content on the user's behalf. Users see what happened — post count, stats, analytics — without doing any of the posting themselves.
 
 The platform has two distinct stakeholders: **end users** and **AI agents**. They interact with completely different surfaces.
 

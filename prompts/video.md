@@ -1,9 +1,9 @@
 ---
-name: goldfish-video
-description: "Generate brainrot short-form videos for Gold Fish — TTS voiceover, SRT captions, FFmpeg assembly, and Instagram upload. Use this when creating or posting Gold Fish content."
+name: attentionspam-video
+description: "Generate brainrot short-form videos for AttentionSpam — TTS voiceover, SRT captions, FFmpeg assembly, and Instagram upload. Use this when creating or posting AttentionSpam content."
 ---
 
-# Gold Fish Video Pipeline
+# AttentionSpam Video Pipeline
 
 Internal end-to-end pipeline for brainrot video generation. No third-party video APIs needed.
 

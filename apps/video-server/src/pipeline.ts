@@ -47,7 +47,7 @@ export async function runPipeline(
 	logger: Logger,
 ): Promise<string> {
 	const tempDir = await mkdtemp(
-		path.join(os.tmpdir(), `gold-fish-video-${jobId}-`),
+		path.join(os.tmpdir(), `attentionspam-video-${jobId}-`),
 	);
 	const outputDir = path.join(OUTPUTS_DIR, jobId);
 	const startedAt = performance.now();

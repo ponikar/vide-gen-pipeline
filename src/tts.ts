@@ -11,7 +11,7 @@ const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
 const configuredModelCacheDir = process.env.KOKORO_CACHE_DIR?.trim();
 const MODEL_CACHE_DIR =
 	configuredModelCacheDir ||
-	path.join(os.homedir(), ".cache", "gold-fish", "transformers");
+	path.join(os.homedir(), ".cache", "attentionspam", "transformers");
 
 const CUSTOM_VOICES_DIR = new URL("../voices/", import.meta.url).pathname;
 

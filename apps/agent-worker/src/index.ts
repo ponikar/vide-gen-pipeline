@@ -28,7 +28,7 @@ const logger = createLogger("agent-worker");
 const NUDGE_CMD =
 	process.env.CRON_NUDGE_COMMAND ??
 	`tsx ${new URL("../scripts/nudge.ts", import.meta.url).pathname}`;
-const FALLBACK_FILE = `${homedir()}/.gold-fish-crontab`;
+const FALLBACK_FILE = `${homedir()}/.attentionspam-crontab`;
 
 const DAY_MAP: Record<string, string> = {
 	sun: "0", mon: "1", tue: "2", wed: "3", thu: "4", fri: "5", sat: "6",
@@ -73,7 +73,7 @@ function crontabRead(): string {
 function crontabWrite(content: string): "crontab" | "fallback" {
 	const withNewline = content.endsWith("\n") ? content : `${content}\n`;
 	try {
-		const tmp = `/tmp/gold-fish-cron-${Date.now()}`;
+		const tmp = `/tmp/attentionspam-cron-${Date.now()}`;
 		writeFileSync(tmp, withNewline, "utf-8");
 		execSync(`crontab "${tmp}"`, { timeout: 5000 });
 		return "crontab";

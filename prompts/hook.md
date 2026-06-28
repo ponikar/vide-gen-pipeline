@@ -1,9 +1,9 @@
 ---
-name: goldfish-hooks
+name: attentionspam-hooks
 description: "Generate scroll-stopping hooks for app developer short-form videos (TikTok/Reels). Covers brainrot, UGC, and slideshow templates with a full hook formula library, psychological breakdown, AI generation instructions, and a testing + iteration framework."
 ---
 
-# Gold Fish Hook Engine
+# AttentionSpam Hook Engine
 
 The hook is everything. A bad hook on a great video = zero views. A great hook on a mediocre video = thousands of views. Every other part of the pipeline is downstream of this.
 
@@ -67,7 +67,7 @@ Promise a payoff that hasn't arrived yet. The brain has a reward pathway that fi
 
 ## Part 2: The Three Content Templates
 
-Gold Fish operates on three templates. Hook style, format, and AI generation approach differ per template.
+AttentionSpam operates on three templates. Hook style, format, and AI generation approach differ per template.
 
 ---
 
@@ -291,7 +291,7 @@ When to use: Works as a UGC reaction — positions the speaker as a user who dis
 
 ### Category 6: App-Specific Hooks (Distribution / Indie Dev Pain)
 
-These are purpose-built for Gold Fish's specific audience. Use as starting templates and remix with formulas above.
+These are purpose-built for AttentionSpam's specific audience. Use as starting templates and remix with formulas above.
 
 **Pain: Zero downloads despite good product**
 - "I built something people wanted. Nobody knew it existed. This is that story."
@@ -420,7 +420,7 @@ Never change the hook AND the template AND the CTA simultaneously — you won't 
 
 ### Hook Evolution Log
 
-Track in `goldfish/hook-performance.json`:
+Track in `attentionspam/hook-performance.json`:
 
 ```json
 {
