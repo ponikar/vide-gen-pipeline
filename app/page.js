@@ -91,7 +91,7 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-              <div className="phone-badge"><span className="dot"></span>Auto-posted · TikTok &amp; Instagram</div>
+              <div className="phone-badge"><span className="dot"></span>Approved &amp; posted · TikTok &amp; Instagram</div>
             </div>
           </div>
         </section>
@@ -142,7 +142,7 @@ export default function Home() {
                         <div className="pipe-icon">📤</div>
                         <div className="pipe-body">
                           <div className="pipe-title">Post to TikTok &amp; Instagram</div>
-                          <div className="pipe-desc">Auto-posted at the optimal time — no action needed from you</div>
+                          <div className="pipe-desc">Auto-posted at the optimal time. You review and approve before anything goes live.</div>
                         </div>
                       </div>
                     </div>
@@ -263,7 +263,7 @@ export default function Home() {
                 <video src="/videos/video3-web.mp4" autoPlay muted loop playsInline preload="metadata"></video>
                 <div className="vg-overlay">
                   <div className="vg-title">Auto-posted.</div>
-                  <div className="vg-desc">TikTok &amp; Instagram, on schedule, no login needed from you.</div>
+                  <div className="vg-desc">TikTok &amp; Instagram, on schedule. You approve each batch before it goes out.</div>
                 </div>
               </article>
             </div>
@@ -292,7 +292,7 @@ export default function Home() {
               </div>
               <div className="stat-row reveal-up">
                 <div className="stat-num" data-target="0" data-suffix="">0</div>
-                <p className="stat-desc"><b>0</b> — Effort after setup. No editing, no scheduling, no logins</p>
+                <p className="stat-desc"><b>0</b> — Manual editing or scheduling. You review batches and we handle the rest.</p>
               </div>
             </div>
           </div>
@@ -413,7 +413,7 @@ export default function Home() {
             <div className="faq-list">
               <details className="faq-item reveal-up">
                 <summary>What exactly is automated?<span className="faq-ic" aria-hidden="true"></span></summary>
-                <div className="faq-a">Everything. You give us your app description once. We write the scripts, generate the brainrot videos, and post them to TikTok and Instagram on a schedule. You don&apos;t touch anything after setup.</div>
+                <div className="faq-a">Almost everything. You give us your app description once. We write the scripts and generate the brainrot videos automatically. Before anything goes live, you get a quick approval step — then we post to TikTok and Instagram on your schedule. All AI-generated content is automatically labeled as such on TikTok, as required by their guidelines.</div>
               </details>
               <details className="faq-item reveal-up">
                 <summary>Do I need any video editing skills?<span className="faq-ic" aria-hidden="true"></span></summary>
@@ -447,6 +447,11 @@ export default function Home() {
             <p className="roadmap-sub reveal-up">The pipeline is live. Here&apos;s what&apos;s coming next.</p>
             <div className="roadmap-grid">
               <article className="roadmap-card reveal-up">
+                <div className="rc-top"><div className="rc-icon">✅</div><span className="rc-tag">Coming soon</span></div>
+                <h3 className="rc-title">Approval Mode</h3>
+                <p className="rc-desc">Review and approve each batch before it goes live. Coming soon: optional full autopilot mode once approval is complete.</p>
+              </article>
+              <article className="roadmap-card reveal-up">
                 <div className="rc-top"><div className="rc-icon">🤖</div><span className="rc-tag">Coming soon</span></div>
                 <h3 className="rc-title">Agent That Learns</h3>
                 <p className="rc-desc">Posts go out. The agent watches what gets clicks, not just views. Next batch gets smarter automatically.</p>
@@ -460,11 +465,6 @@ export default function Home() {
                 <div className="rc-top"><div className="rc-icon">🧪</div><span className="rc-tag">Coming soon</span></div>
                 <h3 className="rc-title">Hook A/B Testing</h3>
                 <p className="rc-desc">The agent tests different opening hooks across batches and doubles down on what converts.</p>
-              </article>
-              <article className="roadmap-card reveal-up">
-                <div className="rc-top"><div className="rc-icon">✅</div><span className="rc-tag">Coming soon</span></div>
-                <h3 className="rc-title">Approval Mode</h3>
-                <p className="rc-desc">Review batches before they go live, or let it run fully on autopilot. Your call.</p>
               </article>
               <article className="roadmap-card reveal-up">
                 <div className="rc-top"><div className="rc-icon">▶️</div><span className="rc-tag">Coming soon</span></div>

@@ -81,7 +81,8 @@ export default function Privacy() {
               <li>Operate, maintain, debug, and improve the Service and its AI output;</li>
               <li>Communicate with you about updates, support, and early-access onboarding;</li>
               <li>Protect against fraud, abuse, and violations of our Terms;</li>
-              <li>Comply with legal obligations.</li>
+              <li>Comply with legal obligations;</li>
+              <li>Apply required platform disclosures — including TikTok&apos;s AIGC label and commercial content disclosure — to every post made on your behalf.</li>
             </ul>
           </section>
 
@@ -114,10 +115,14 @@ export default function Privacy() {
             <h2><span className="num">05</span>Third-party platform data</h2>
             <p>
               Our use and transfer of information received from TikTok and Instagram/Meta APIs adhere
-              to those platforms&apos; developer policies, including any applicable limited-use
-              requirements. We access this data only to provide features you&apos;ve asked for. The
-              way TikTok and Instagram handle your data on their own platforms is governed by their
-              respective privacy policies, not this one.
+              to those platforms&apos; developer policies, including all applicable Limited Use
+              requirements. Specifically, information received from TikTok&apos;s APIs — including
+              access tokens, account profile data, and post status — is used solely to provide the
+              posting features you have authorized. This data is not transferred to third parties for
+              unrelated purposes, not used to build profiles beyond what is needed to operate the
+              Service, and not used for advertising or any purpose other than publishing content on
+              your behalf. The way TikTok and Instagram handle your data on their own platforms is
+              governed by their respective privacy policies, not this one.
             </p>
           </section>
 

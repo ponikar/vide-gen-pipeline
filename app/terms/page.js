@@ -57,6 +57,14 @@ export default function Terms() {
               The Service runs on autopilot after setup. Features, formats, and supported platforms
               may change as the product evolves.
             </p>
+            <p>
+              Before any content is published to your connected accounts, the Service presents a
+              per-batch approval step where you can review the generated videos. Additionally, all
+              AI-generated content posted through the Service is automatically disclosed as
+              AI-generated using the platform&apos;s required disclosure tools, including TikTok&apos;s
+              AIGC label and commercial content disclosure, as required by TikTok&apos;s developer and
+              community guidelines.
+            </p>
           </section>
 
           <section className="legal-section">
@@ -98,6 +106,13 @@ export default function Terms() {
               our access at any time through the relevant platform&apos;s settings or by asking us
               to disconnect.
             </p>
+            <p>
+              In addition to your one-time authorization at account setup, the Service requires your
+              explicit per-batch consent before content is published to your TikTok account. This
+              includes a confirmation that you agree to TikTok&apos;s Music Usage Confirmation,
+              displayed to you before each post is submitted. No content is posted to TikTok without
+              this per-post consent step.
+            </p>
           </section>
 
           <section className="legal-section">
@@ -107,7 +122,11 @@ export default function Terms() {
               and policies of each destination platform (including TikTok and Instagram/Meta). You
               are responsible for ensuring your use of the Service — and the content it produces —
               complies with those rules. We are not responsible for any account suspension,
-              shadow-ban, reach limitation, or other action taken by a third-party platform.
+              shadow-ban, reach limitation, or other action taken by a third-party platform. For
+              content posted to TikTok, the Service automatically enables the AI-generated content
+              (AIGC) disclosure toggle and the commercial content disclosure (Your Brand) on every
+              post, as required by TikTok&apos;s Content Posting API guidelines and Community
+              Guidelines.
             </p>
           </section>
 
@@ -238,10 +257,11 @@ export default function Terms() {
           <section className="legal-section">
             <h2><span className="num">16</span>Governing law</h2>
             <p>
-              These Terms are governed by the laws applicable in our principal place of business,
-              without regard to conflict-of-law principles. Any disputes will be resolved in the
-              courts located there, unless mandatory law in your country of residence requires
-              otherwise.
+              These Terms are governed by the laws of India, without regard to conflict-of-law
+              principles. Any disputes will be resolved in the courts located in Surat, Gujarat,
+              India, unless mandatory law in your country of residence requires otherwise.
+              Vid-Gen-Scale is operated by [YOUR LEGAL ENTITY NAME — fill this in before submitting
+              to TikTok].
             </p>
           </section>
 
