@@ -12,10 +12,7 @@ export default function Home() {
       {/* Intro / Loading */}
       <div className="intro" id="intro">
         <div className="intro-logo">
-          <svg className="bird" viewBox="0 0 32 32" width="40" height="40" aria-hidden="true">
-            <path d="M2 22 L16 4 L30 22 L16 15 Z" fill="#f7f5f2" />
-            <path d="M16 15 L16 28" stroke="#f7f5f2" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-          </svg>
+          <img src="/logo.png" alt="AttentionSpam" width="40" height="40" />
           <span className="intro-word">AttentionSpam</span>
         </div>
       </div>
@@ -23,10 +20,7 @@ export default function Home() {
       {/* Navigation */}
       <header className="nav" id="nav">
         <a className="nav-brand" href="#top">
-          <svg className="bird" viewBox="0 0 32 32" width="20" height="20" aria-hidden="true">
-            <path d="M2 22 L16 4 L30 22 L16 15 Z" fill="#f7f5f2" />
-            <path d="M16 15 L16 28" stroke="#f7f5f2" strokeWidth="2.6" fill="none" strokeLinecap="round" />
-          </svg>
+          <img src="/logo.png" alt="AttentionSpam" width="20" height="20" />
           <span>AttentionSpam</span>
         </a>
         <nav className="nav-links" id="navLinks">
@@ -445,7 +439,7 @@ export default function Home() {
             <div className="footer-grid">
               <div className="footer-left">
                 <div className="footer-brand">
-                  <svg className="bird" viewBox="0 0 32 32" width="44" height="44"><path d="M2 22 L16 4 L30 22 L16 15 Z" fill="#f7f5f2" /><path d="M16 15 L16 28" stroke="#f7f5f2" strokeWidth="2.2" fill="none" strokeLinecap="round" /></svg>
+                  <img src="/logo.png" alt="AttentionSpam" width="44" height="44" />
                   <span className="footer-wordmark">AttentionSpam</span>
                 </div>
               </div>
