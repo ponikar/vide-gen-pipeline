@@ -174,13 +174,6 @@ export const videoGenerationRouter = router({
 				throw new TRPCError({ code: "NOT_FOUND", message: "App not found" });
 			}
 
-			if (!input.idea && app.fineTuned) {
-				throw new TRPCError({
-					code: "PRECONDITION_FAILED",
-					message: "Already fine-tuned",
-				});
-			}
-
 			if (input.idea) {
 				const [tiktokAccount] = await ctx.db
 					.select({ id: connectedAccounts.id })

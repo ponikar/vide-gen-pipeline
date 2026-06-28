@@ -1,4 +1,5 @@
 Project: AttentionSpam
+
 Architecture
 Two-app setup:
 - apps/web-app/ — Next.js (App Router) dashboard + marketing landing page
@@ -78,7 +79,7 @@ Video Generation Flow (Dashboard)
 3. Polls video-server at 2s interval via tRPC (getStatus)
 4. Video-server: job queue → Kokoro TTS → ffmpeg pipeline → Supabase upload
 5. User can multi-select favorite videos inline → Save stores JSON array in apps.fineTunePreference (jsonb column)
-6. One fine-tune chance per app (fine_tuned=true locks it)
+6. Fine-tune can be repeated multiple times — users can regenerate, re-select, and re-save preferences
 7. prompts/hook.md and prompts/video.md are empty — user writes content
 8. prompts/videos-context.md has categorized background MP4 URLs
 Key Commits
@@ -248,8 +249,56 @@ Connected Accounts Check Before Scheduling (2026-06-27)
 - Added client-side check in `ScheduleForm`: queries connected accounts, computes missing platforms, shows a warning message, and disables the "Start Auto-Posting" button until all selected platforms have connected accounts. Mutation errors are also surfaced inline.
 - Files modified in this iteration: `apps/web-app/src/server/api/routers/cronSchedule.ts`, `apps/web-app/src/app/dashboard/[appId]/page.tsx`, `codemap.md`.
 
+Dashboard Sidebar Restructure + Social Page (2026-06-28, iteration 1)
+- Removed sidebar from `dashboard/layout.tsx` — dashboard page no longer has sidebar
+- Created `dashboard/[appId]/layout.tsx` with sidebar navigation: Options, Create Post, Analytics Post, Social
+- Sidebar now only visible on app-specific pages (`/dashboard/[appId]/*`)
+- Moved ConnectedAccountsSection from app detail page to new dedicated `/dashboard/[appId]/social` page
+- Social page shows Instagram/TikTok account cards with connect/disconnect buttons
+- Files modified: `apps/web-app/src/app/dashboard/layout.tsx`, `apps/web-app/src/app/dashboard/[appId]/page.tsx`, `apps/web-app/src/app/dashboard/[appId]/layout.tsx`, `apps/web-app/src/app/dashboard/[appId]/social/page.tsx`, `codemap.md`.
+
+Repeatable Fine-Tune Video Generation (2026-06-28)
+- Removed the `fineTuned` server-side gate in `videoGeneration.ts` generate procedure — users can now generate onboarding preview videos multiple times, even after the app has been fine-tuned.
+- Refactored `VideoFineTuneSection` in `[appId]/page.tsx`: removed the `if (app?.fineTuned) return null` guard and the one-shot `started` state. The section is always visible. The button shows "Start Fine-Tune" / "Regenerate" / "Generating..." based on current state.
+- Added explicit error messages for video generation failures and save failures (previously errors were silently swallowed).
+- Added green success acknowledgment after saving preferences.
+- Files modified in this iteration: `apps/web-app/src/server/api/routers/videoGeneration.ts`, `apps/web-app/src/app/dashboard/[appId]/page.tsx`, `codemap.md`.
+- Verification: typecheck passes (only the 2 pre-existing LandingPage.tsx errors remain).
+
+Landing Redesign and Legal Pages Port (2026-06-28, iteration 1)
+- Ported the complete landing page, Terms & Conditions page, Privacy Policy page, interactive effects, compliance-copy updates, and four video assets from the unrelated-history `parth/landing-redesign` branch into the existing `apps/web-app` Next.js application. A merge or cherry-pick was intentionally avoided because the source branch is a standalone repository tree and would delete the monorepo application.
+- Replaced the old landing route with the redesigned Vid-Gen-Scale page, added route-specific metadata, and added `/terms` and `/privacy`. Reused the web app's installed Lenis package instead of the source branch's CDN script.
+- Moved the old landing-only global CSS out of `globals.css`, imported the redesign stylesheet, and scoped every redesign selector and CSS variable under `.vgs-site` so generic source selectors such as `.nav`, `.btn`, `main`, and `--border` cannot affect dashboard routes. Added self-hosted Next font variables for DM Sans and JetBrains Mono.
+- Verification: `npm run typecheck` passes. An isolated production build compiled successfully and statically generated `/`, `/terms`, and `/privacy`; isolation was required because a concurrently running dev server was writing to the workspace `.next` directory. A temporary production server returned `200 text/html` for all three pages and `200 video/mp4` for all four copied videos, with response sizes matching the source assets. `git diff --check` passes. Visual browser inspection was blocked because the in-app browser connector could not initialize in this environment.
+- Files modified in this iteration: `apps/web-app/src/app/layout.tsx`, `apps/web-app/src/app/page.tsx`, `apps/web-app/src/app/privacy/page.js`, `apps/web-app/src/app/terms/page.js`, `apps/web-app/src/components/landing-redesign/LandingPage.js`, `apps/web-app/src/components/landing-redesign/SiteEffects.js`, `apps/web-app/src/styles/globals.css`, `apps/web-app/src/styles/landing-redesign.css`, `apps/web-app/public/videos/Hero-web.mp4`, `apps/web-app/public/videos/video1-web.mp4`, `apps/web-app/public/videos/video2-web.mp4`, `apps/web-app/public/videos/video3-web.mp4`, `codemap.md`.
+
+Landing Redesign and Legal Pages Port (2026-06-28, iteration 2)
+- Removed the superseded `apps/web-app/src/components/landing` component tree after confirming that no application route imports it. Keeping it served no fallback path and left the project typecheck failing on two stale pointer-event typing errors.
+- Verification: source search confirms the redesigned landing component is the only landing import, and `npm run typecheck` passes after the cleanup.
+- Files modified in this iteration: `apps/web-app/src/components/landing/BgFx.tsx`, `apps/web-app/src/components/landing/ComingSoon.tsx`, `apps/web-app/src/components/landing/HowItWorks.tsx`, `apps/web-app/src/components/landing/Journey.tsx`, `apps/web-app/src/components/landing/LandingPage.tsx`, `apps/web-app/src/components/landing/Nav.tsx`, `apps/web-app/src/components/landing/Sections.tsx`, `apps/web-app/src/components/landing/VideoGallery.tsx`, `codemap.md`.
+
+Create Post Page — Start Fresh on Every Visit (2026-06-28)
+- Removed the auto-loading effect in `create/page.tsx` that loaded the latest `on_demand` job on page mount. Previously, navigating to the create page with a previously scheduled post would lock the form (textarea disabled, generate button hidden, schedule form hidden).
+- Removed `isScheduled` from the textarea `disabled` check and removed the `!isScheduled` wrapper around the generate button — users can always type a new idea and generate, regardless of past scheduled posts.
+- The `isScheduled` guard remains on the schedule form (`!isScheduled`) to prevent re-scheduling the same video job.
+- Removed unused `getIdea` helper, `jobs` query, and stale invalidation calls.
+- Files modified in this iteration: `apps/web-app/src/app/dashboard/[appId]/create/page.tsx`, `codemap.md`.
+- Verification: typecheck passes.
+
+Landing Sticky Features Diagnosis (2026-06-28)
+- Root cause: the scoped redesign wrapper adds `overflow-x: hidden` to `.vgs-site`. CSS computes the other axis from `visible` to `auto`, making `.vgs-site` the nearest scrolling-mechanism ancestor of `.hcards-sticky`. The wrapper itself does not perform the document's vertical scrolling, so `position: sticky` is constrained against the wrong ancestor and the feature section scrolls away instead of remaining pinned for its full `400vh`.
+- The section height and JavaScript progress calculation are otherwise consistent: four cards share the `300vh` scrollable interval left after subtracting the `100vh` sticky viewport. At viewport widths of 900px or less, the source implementation deliberately disables sticky behavior and switches to a three-second auto-cycle.
+- Recommended correction: change `.vgs-site` to `overflow-x: clip` (or remove horizontal overflow clipping) so it does not establish a scroll container. If sticky behavior is also required below 901px, separately remove the responsive `position: relative`/`height: auto` overrides and the JavaScript width guard.
+- No runtime code was changed during this diagnosis.
+- Files modified in this iteration: `codemap.md`.
+
+Landing Technology Section Removal (2026-06-28)
+- Removed the “Built your app in anything? We’ll market it.” technology-stack section from the redesigned landing page.
+- Removed its unused technology-pill CSS and cursor-effect selector so no dead section-specific code remains.
+- Verification: `npm run typecheck`, source-reference search, and `git diff --check` pass.
+- Files modified in this iteration: `apps/web-app/src/components/landing-redesign/LandingPage.js`, `apps/web-app/src/components/landing-redesign/SiteEffects.js`, `apps/web-app/src/styles/landing-redesign.css`, `codemap.md`.
+
 Known Issues
-- LandingPage.tsx has 2 pre-existing TS errors (clientX/clientY on untyped Event)
 - Migrations 0006 and 0007 were registered in the journal but never run against Neon DB.
   Applied manually via psql on 2026-06-25.
 - Video-server is in-memory — restart loses queued jobs (handled by getStatus marking DB jobs as failed)

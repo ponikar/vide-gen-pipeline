@@ -23,25 +23,7 @@ export default function DashboardLayout({
 					</div>
 				</div>
 			</header>
-			<div className="flex flex-1">
-				<aside className="w-56 border-r bg-muted/30 p-4 hidden md:block">
-					<nav className="flex flex-col gap-2">
-						<Link
-							href="/dashboard"
-							className="rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-						>
-							My Apps
-						</Link>
-						<Link
-							href="/dashboard/onboard"
-							className="rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-						>
-							New App
-						</Link>
-					</nav>
-				</aside>
-				<main className="flex-1 p-6">{children}</main>
-			</div>
+			<main className="flex-1">{children}</main>
 		</div>
 	);
 }

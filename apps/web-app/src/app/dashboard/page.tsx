@@ -39,7 +39,7 @@ export default function DashboardPage() {
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-8 p-6">
 			<div className="flex items-center justify-between">
 				<h1 className="text-2xl font-bold">My Apps</h1>
 				<Link
@@ -50,7 +50,7 @@ export default function DashboardPage() {
 					New App
 				</Link>
 			</div>
-			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+			<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
 				{apps.map((app) => (
 					<Link
 						key={app.id}

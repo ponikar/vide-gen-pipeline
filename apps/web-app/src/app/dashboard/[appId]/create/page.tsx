@@ -19,14 +19,6 @@ type VideoJob = {
 	error: string | null;
 };
 
-function getIdea(params: Record<string, unknown> | null): string {
-	if (!params || typeof params.meta !== "object" || params.meta === null) {
-		return "";
-	}
-	const idea = (params.meta as Record<string, unknown>).idea;
-	return typeof idea === "string" ? idea : "";
-}
-
 export default function CreatePostPage() {
 	const { appId } = useParams<{ appId: string }>();
 	const utils = api.useUtils();
@@ -43,10 +35,6 @@ export default function CreatePostPage() {
 		id: appId,
 	});
 	const { data: accounts } = api.connectedAccount.listByApp.useQuery({ appId });
-	const { data: jobs } = api.videoGeneration.list.useQuery({
-		appId,
-		flow: "on_demand",
-	});
 	const { data: posts } = api.post.listByApp.useQuery({ appId });
 
 	const generate = api.videoGeneration.generate.useMutation();
@@ -102,18 +90,6 @@ export default function CreatePostPage() {
 	}, []);
 
 	useEffect(() => {
-		if (!jobs?.length || job) return;
-		const latest = jobs[jobs.length - 1];
-		setJob({
-			id: latest.id,
-			status: latest.status,
-			outputUrl: latest.outputUrl,
-			error: latest.error,
-		});
-		setIdea(getIdea(latest.generationParams));
-	}, [jobs, job]);
-
-	useEffect(() => {
 		if (
 			job &&
 			(job.status === "pending" || job.status === "running") &&
@@ -143,10 +119,6 @@ export default function CreatePostPage() {
 					};
 					polledJobId.current = null;
 					setJob(nextJob);
-					utils.videoGeneration.list.invalidate({
-						appId,
-						flow: "on_demand",
-					});
 				},
 				onError: (error) => setFormError(error.message),
 			},
@@ -251,31 +223,29 @@ export default function CreatePostPage() {
 							onChange={(event) => setIdea(event.target.value)}
 							maxLength={2000}
 							rows={5}
-							disabled={generate.isPending || isScheduled}
+							disabled={generate.isPending}
 							placeholder="For example: Explain why people keep checking their phone at bedtime and show how my app helps."
 							className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
 						/>
-						{!isScheduled && (
-							<button
-								type="button"
-								onClick={generateVideo}
-								disabled={!idea.trim() || generate.isPending}
-								className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-							>
-								{generate.isPending ? (
-									<Loader2 className="h-4 w-4 animate-spin" />
-								) : job?.status === "done" || job?.status === "failed" ? (
-									<RefreshCw className="h-4 w-4" />
-								) : (
-									<Sparkles className="h-4 w-4" />
-								)}
-								{generate.isPending
-									? "Creating script..."
-									: job?.status === "done" || job?.status === "failed"
-										? "Regenerate"
-										: "Generate video"}
-							</button>
-						)}
+						<button
+							type="button"
+							onClick={generateVideo}
+							disabled={!idea.trim() || generate.isPending}
+							className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+						>
+							{generate.isPending ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : job?.status === "done" || job?.status === "failed" ? (
+								<RefreshCw className="h-4 w-4" />
+							) : (
+								<Sparkles className="h-4 w-4" />
+							)}
+							{generate.isPending
+								? "Creating script..."
+								: job?.status === "done" || job?.status === "failed"
+									? "Regenerate"
+									: "Generate video"}
+						</button>
 					</div>
 
 					{job && (
