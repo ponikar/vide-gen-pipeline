@@ -504,7 +504,7 @@ export default function Home() {
 
             <div className="footer-meta">
               <span>© 2026 Vid-Gen-Scale. Built for indie app developers.</span>
-              <span className="footer-legal"><a href="#">Terms &amp; Conditions</a><a href="#">Privacy Policy</a></span>
+              <span className="footer-legal"><a href="/terms">Terms &amp; Conditions</a><a href="/privacy">Privacy Policy</a></span>
             </div>
 
             <div className="footer-links">
