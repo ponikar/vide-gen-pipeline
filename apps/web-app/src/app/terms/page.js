@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 export const metadata = {
   title: "Terms & Conditions — AttentionSpam",
   description:
-    "The terms that govern your use of AttentionSpam — the AI content engine that scripts, generates, and auto-posts videos for app developers.",
+    "The terms that govern your use of AttentionSpam — the AI-assisted content creation workflow for app developers.",
 };
 
 const Bird = ({ size = 20 }) => (
@@ -36,13 +36,12 @@ export default async function Terms() {
         <div className="legal-wrap">
           <div className="legal-eyebrow"><span className="dot"></span>Legal</div>
           <h1>Terms &amp; Conditions</h1>
-          <p className="legal-updated">Last updated: June 28, 2026</p>
+          <p className="legal-updated">Last updated: June 29, 2026</p>
           <p className="legal-intro">
             These Terms &amp; Conditions (&ldquo;Terms&rdquo;) govern your access to and use of
-            AttentionSpam (the &ldquo;Service&rdquo;) — an automated content engine that scripts,
-            generates, and posts short-form videos to social platforms on your behalf. By creating
-            an account or using the Service, you agree to these Terms. If you don&apos;t agree,
-            please don&apos;t use the Service.
+            AttentionSpam (the &ldquo;Service&rdquo;) — an AI-assisted content creation workflow
+            for app developers. By creating an account or using the Service, you agree to these
+            Terms. If you don&apos;t agree, please don&apos;t use the Service.
           </p>
 
           <hr className="legal-divider" />
@@ -51,25 +50,21 @@ export default async function Terms() {
             <h2><span className="num">01</span>Who we are &amp; what we do</h2>
             <p>
               AttentionSpam (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) provides an
-              AI-powered content pipeline built for app developers. Once you describe your app, the
-              Service automatically:
+              AI-assisted content creation workflow for app developers. Once you describe your app,
+              the Service may:
             </p>
             <ul>
-              <li>Writes scripts and hooks for short-form videos using AI;</li>
-              <li>Generates &ldquo;brainrot&rdquo;-style vertical videos with text-to-speech voiceover and burned-in captions;</li>
-              <li>Posts those videos to your connected TikTok and Instagram accounts on a recurring schedule.</li>
+              <li>Generate video ideas, scripts, captions, and voiceovers using AI;</li>
+              <li>Create short-form vertical videos with text-to-speech and burned-in captions;</li>
+              <li>Upload user-approved videos through TikTok&rsquo;s official upload flow, where they land as drafts for your review.</li>
             </ul>
             <p>
-              The Service runs on autopilot after setup. Features, formats, and supported platforms
-              may change as the product evolves.
-            </p>
-            <p>
-              Before any content is published to your connected accounts, the Service presents a
-              per-batch approval step where you can review the generated videos. Additionally, all
-              AI-generated content posted through the Service is automatically disclosed as
-              AI-generated using the platform&apos;s required disclosure tools, including TikTok&apos;s
-              AIGC label and commercial content disclosure, as required by TikTok&apos;s developer and
-              community guidelines.
+              You review all content before any platform action is initiated. For TikTok, we upload
+              your approved videos through TikTok&rsquo;s official API. After upload, you complete
+              any final editing, disclosures, privacy settings, and decide whether to publish inside
+              TikTok. AttentionSpam does not automatically publish TikTok content or automate
+              engagement. Features, formats, and supported platforms may change as the product
+              evolves.
             </p>
           </section>
 
@@ -98,13 +93,12 @@ export default async function Terms() {
             <h2><span className="num">04</span>Your account &amp; connected platforms</h2>
             <p>
               To use the Service, you authorize AttentionSpam to connect to your third-party
-              accounts — including <strong>TikTok</strong> and <strong>Instagram</strong> — and to
-              create and publish content on your behalf. By connecting these accounts, you confirm
-              that:
+              accounts — including <strong>TikTok</strong> — through their official APIs. By
+              connecting these accounts, you confirm that:
             </p>
             <ul>
               <li>You own or are authorized to manage those accounts;</li>
-              <li>You grant us permission to post, schedule, and manage content through them;</li>
+              <li>TikTok permissions are used only to identify your connected account and upload user-approved video content;</li>
               <li>You will keep your login and authorization credentials secure.</li>
             </ul>
             <p>
@@ -113,43 +107,43 @@ export default async function Terms() {
               to disconnect.
             </p>
             <p>
-              In addition to your one-time authorization at account setup, the Service requires your
-              explicit per-batch consent before content is published to your TikTok account. This
-              includes a confirmation that you agree to TikTok&apos;s Music Usage Confirmation,
-              displayed to you before each post is submitted. No content is posted to TikTok without
-              this per-post consent step.
+              No TikTok upload begins without your explicit action. After upload, you complete any
+              final review, disclosure, settings, and publishing steps inside TikTok.
             </p>
           </section>
 
           <section className="legal-section">
             <h2><span className="num">05</span>Third-party platform rules</h2>
             <p>
-              Content posted through the Service must comply with the terms, community guidelines,
-              and policies of each destination platform (including TikTok and Instagram/Meta). You
-              are responsible for ensuring your use of the Service — and the content it produces —
-              complies with those rules. We are not responsible for any account suspension,
-              shadow-ban, reach limitation, or other action taken by a third-party platform. For
-              content posted to TikTok, the Service automatically enables the AI-generated content
-              (AIGC) disclosure toggle and the commercial content disclosure (Your Brand) on every
-              post, as required by TikTok&apos;s Content Posting API guidelines and Community
-              Guidelines.
+              Content uploaded through the Service must comply with the terms, community guidelines,
+              and policies of each destination platform (including TikTok). You are responsible for
+              ensuring your use of the Service — and the content it produces — complies with those
+              rules. We are not responsible for any account suspension, shadow-ban, reach
+              limitation, or other action taken by a third-party platform.
+            </p>
+            <p>
+              Where applicable, AttentionSpam may help you identify AI-generated-content or
+              commercial-content disclosure requirements. You are responsible for reviewing final
+              disclosure settings, music choices, privacy options, and publishing settings inside
+              TikTok before any content goes live.
             </p>
           </section>
 
           <section className="legal-section">
             <h2><span className="num">06</span>AI-generated content</h2>
             <p>
-              Scripts, voiceovers, captions, and videos are generated automatically using AI and
-              automated tooling. Because of how generative systems work:
+              Scripts, voiceovers, captions, and videos are generated using AI and automated
+              tooling. Because of how generative systems work:
             </p>
             <ul>
-              <li>Output may be inaccurate, repetitive, or unexpected, and is not reviewed by a human before posting unless you enable an approval step;</li>
+              <li>Output may be inaccurate, repetitive, incomplete, or unexpected;</li>
               <li>Similar output may be generated for other users — we don&apos;t guarantee uniqueness;</li>
-              <li>You are responsible for reviewing and standing behind any content published to your accounts.</li>
+              <li>You are responsible for reviewing all output before initiating an upload and before publishing inside TikTok or any other platform.</li>
             </ul>
             <p>
-              You should not rely on AI-generated content as professional, legal, financial, or
-              factual advice about your app or anything else.
+              We do not guarantee factual accuracy, uniqueness, results, reach, users, installs, or
+              revenue. You should not rely on AI-generated content as professional, legal,
+              financial, or factual advice about your app or anything else.
             </p>
           </section>
 
@@ -159,13 +153,14 @@ export default async function Terms() {
               You retain ownership of the materials you provide (your app description, branding,
               assets, and similar inputs — &ldquo;Your Content&rdquo;). You grant us a worldwide,
               non-exclusive license to use, reproduce, modify, and process Your Content solely to
-              operate and provide the Service, including generating and publishing videos on your
-              behalf.
+              operate and provide the Service, including generating content and preparing
+              user-approved videos for upload through connected-platform integrations.
             </p>
             <p>You represent and warrant that:</p>
             <ul>
-              <li>You have all rights necessary to provide Your Content and to have it used as described;</li>
+              <li>You have all rights necessary to provide Your Content and to have it used as described, including the rights to upload it to TikTok and other platforms;</li>
               <li>Your Content and the resulting videos do not infringe anyone&apos;s intellectual property, privacy, or other rights;</li>
+              <li>You will not use the Service to upload content you do not own or have rights to use;</li>
               <li>You will not use the Service to promote anything unlawful, deceptive, harmful, or in violation of any platform&apos;s rules.</li>
             </ul>
           </section>
@@ -174,9 +169,10 @@ export default async function Terms() {
             <h2><span className="num">08</span>Acceptable use</h2>
             <p>You agree not to use the Service to:</p>
             <ul>
-              <li>Create or distribute content that is illegal, hateful, harassing, sexually explicit involving minors, or otherwise harmful;</li>
+              <li>Create or upload content that is illegal, hateful, harassing, sexually explicit involving minors, or otherwise harmful;</li>
               <li>Impersonate others or misrepresent your affiliation with any person or entity;</li>
-              <li>Spam, manipulate engagement, or violate any platform&apos;s automation or posting policies;</li>
+              <li>Spam, manipulate engagement, or violate any platform&apos;s automation, upload, or posting policies;</li>
+              <li>Upload content you do not own or have rights to use;</li>
               <li>Reverse engineer, scrape, overload, or interfere with the Service or its infrastructure;</li>
               <li>Resell or provide the Service to third parties without our written permission.</li>
             </ul>
@@ -266,8 +262,7 @@ export default async function Terms() {
               These Terms are governed by the laws of India, without regard to conflict-of-law
               principles. Any disputes will be resolved in the courts located in Surat, Gujarat,
               India, unless mandatory law in your country of residence requires otherwise.
-              AttentionSpam is operated by [YOUR LEGAL ENTITY NAME — fill this in before submitting
-              to TikTok].
+              AttentionSpam is operated by Darshan Patel.
             </p>
           </section>
 

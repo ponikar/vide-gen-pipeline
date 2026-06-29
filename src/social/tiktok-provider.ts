@@ -1,5 +1,5 @@
 import { TikTokClient } from "../tiktok/client.js";
-import { postReel } from "../tiktok/post.js";
+import { uploadDraft } from "../tiktok/post.js";
 import type { SocialProvider } from "./types.js";
 
 export class TikTokProvider implements SocialProvider {
@@ -9,10 +9,10 @@ export class TikTokProvider implements SocialProvider {
 		accessToken: string,
 		_accountId: string,
 		videoUrl: string,
-		caption: string,
+		_caption: string,
 	): Promise<{ containerId: string }> {
 		const client = new TikTokClient(accessToken);
-		const result = await postReel(client, videoUrl, caption);
+		const result = await uploadDraft(client, videoUrl);
 		return { containerId: result.publishId };
 	}
 
@@ -21,10 +21,10 @@ export class TikTokProvider implements SocialProvider {
 		containerId: string,
 	): Promise<{ status: string; errorMessage?: string }> {
 		const client = new TikTokClient(accessToken);
-		const status = await client.get<{
+		const status = await client.post<{
 			status: string;
 			fail_reason?: string;
-		}>("/video/publish/", { publish_id: containerId });
+		}>("/post/publish/status/fetch/", { publish_id: containerId });
 		return {
 			status: status.status,
 			errorMessage: status.fail_reason,

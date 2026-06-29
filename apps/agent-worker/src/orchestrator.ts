@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { InstagramClient } from "../../../src/instagram/client.js";
 import { postReel as instagramPostReel } from "../../../src/instagram/post.js";
 import { TikTokClient } from "../../../src/tiktok/client.js";
-import { postReel as tiktokPostReel } from "../../../src/tiktok/post.js";
+import { uploadDraft as tiktokUploadDraft } from "../../../src/tiktok/post.js";
 import {
 	createLogger,
 	elapsedMs,
@@ -434,11 +434,11 @@ export async function runPipeline(
 					);
 				} else if (platform === "tiktok") {
 					const client = new TikTokClient(account.access_token as string);
-					result = await tiktokPostReel(
+					const { publishId } = await tiktokUploadDraft(
 						client,
 						outputUrl,
-						captionResult.tiktok,
 					);
+					result = { publishId };
 				} else {
 					publishingFailures.push(`${platform}: platform is unsupported`);
 					platformLogger.warn(
@@ -450,15 +450,20 @@ export async function runPipeline(
 
 				const link =
 					platform === "tiktok"
-						? (result as { postUrl?: string }).postUrl
+						? null
 						: (result as { permalink?: string }).permalink;
+
+				const postStatus = platform === "tiktok" ? "sent_to_inbox" : "published";
+				const postTitle = platform === "tiktok"
+					? (result as { publishId?: string }).publishId ?? "uploaded"
+					: (result as { igMediaId?: string }).igMediaId ?? "posted";
 
 				await db`
           INSERT INTO posts (app_id, title, link, description, video_type, caption, platform, platform_post_id, status, published_at, meta, video_job_id, type)
-          VALUES (${appId}, ${(result as { igMediaId?: string }).igMediaId ?? (result as { publishId?: string }).publishId ?? "posted"},
+          VALUES (${appId}, ${postTitle},
                   ${link ?? null}, ${scriptResult.videoDescription}, ${scriptResult.videoType}, ${platform === "instagram" ? captionResult.instagram : captionResult.tiktok},
                   ${platform}, ${(result as { igMediaId?: string }).igMediaId ?? (result as { publishId?: string }).publishId ?? ""},
-                  'published', ${new Date().toISOString()},
+                  ${postStatus}, ${new Date().toISOString()},
                   ${JSON.stringify(meta)}, ${jobId}, 'generated')
         `;
 

@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 export const metadata = {
   title: "Privacy Policy — AttentionSpam",
   description:
-    "How AttentionSpam collects, uses, and protects your data — including the access we use to post to your connected TikTok and Instagram accounts.",
+    "How AttentionSpam collects, uses, and protects your data — including the access we use to upload content to your connected TikTok and Instagram accounts.",
 };
 
 const Bird = ({ size = 20 }) => (
@@ -36,12 +36,12 @@ export default async function Privacy() {
         <div className="legal-wrap">
           <div className="legal-eyebrow"><span className="dot"></span>Legal</div>
           <h1>Privacy Policy</h1>
-          <p className="legal-updated">Last updated: June 28, 2026</p>
+          <p className="legal-updated">Last updated: June 29, 2026</p>
           <p className="legal-intro">
             This Privacy Policy explains how AttentionSpam (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or
             &ldquo;our&rdquo;) collects, uses, shares, and protects your information when you use our
-            service — the automated content engine that scripts, generates, and posts short-form
-            videos to your connected social accounts. By using AttentionSpam, you agree to the
+            service — the AI-assisted content engine that scripts, generates, and uploads
+            short-form videos to your connected social accounts. By using AttentionSpam, you agree to the
             practices described here.
           </p>
 
@@ -61,13 +61,13 @@ export default async function Privacy() {
             <h3>Information from connected platforms</h3>
             <p>
               When you connect <strong>TikTok</strong> and <strong>Instagram</strong>, you authorize
-              us to access certain data through their official APIs so we can post on your behalf.
+              us to access certain data through their official APIs so we can provide the Service.
               Depending on the permissions you grant, this may include:
             </p>
             <ul>
-              <li>Your account profile and username on those platforms;</li>
-              <li>Access tokens that let us publish and manage posts (we never see or store your platform password);</li>
-              <li>Basic information about the posts we create for you, such as their status.</li>
+              <li>For TikTok: your account identifier, display name, and profile image (via the <code>user.info.basic</code> scope);</li>
+              <li>Access tokens that let us upload user-approved content (we never see or store your platform password);</li>
+              <li>Upload status for videos we send to TikTok.</li>
             </ul>
 
             <h3>Information collected automatically</h3>
@@ -82,13 +82,13 @@ export default async function Privacy() {
             <h2><span className="num">02</span>How we use your information</h2>
             <p>We use the information we collect to:</p>
             <ul>
-              <li>Provide the Service — generate scripts, videos, and voiceovers, and publish them to your connected accounts;</li>
+              <li>Provide the Service — generate scripts, videos, and voiceovers, and upload user-approved videos to connected platforms for review and completion by the user;</li>
               <li>Authenticate you and maintain your account and connected-platform sessions;</li>
               <li>Operate, maintain, debug, and improve the Service and its AI output;</li>
               <li>Communicate with you about updates, support, and early-access onboarding;</li>
               <li>Protect against fraud, abuse, and violations of our Terms;</li>
               <li>Comply with legal obligations;</li>
-              <li>Apply required platform disclosures — including TikTok&apos;s AIGC label and commercial content disclosure — to every post made on your behalf.</li>
+              <li>Where applicable, help users identify AI-generated or commercial-content disclosures. Users remain responsible for reviewing final disclosures and publishing settings inside the platform.</li>
             </ul>
           </section>
 
@@ -110,7 +110,7 @@ export default async function Privacy() {
               limited situations:
             </p>
             <ul>
-              <li><strong>Connected platforms</strong> — we send the content and instructions needed to publish to TikTok and Instagram on your behalf;</li>
+              <li><strong>Connected platforms</strong> — we send the user-approved content needed to upload to TikTok and Instagram;</li>
               <li><strong>Service providers</strong> — hosting, storage, analytics, and AI vendors who process data for us under confidentiality obligations;</li>
               <li><strong>Legal reasons</strong> — when required by law, regulation, legal process, or to protect the rights, safety, and property of our users or us;</li>
               <li><strong>Business transfers</strong> — in connection with a merger, acquisition, or sale of assets, subject to this Policy.</li>
@@ -122,13 +122,13 @@ export default async function Privacy() {
             <p>
               Our use and transfer of information received from TikTok and Instagram/Meta APIs adhere
               to those platforms&apos; developer policies, including all applicable Limited Use
-              requirements. Specifically, information received from TikTok&apos;s APIs — including
-              access tokens, account profile data, and post status — is used solely to provide the
-              posting features you have authorized. This data is not transferred to third parties for
-              unrelated purposes, not used to build profiles beyond what is needed to operate the
-              Service, and not used for advertising or any purpose other than publishing content on
-              your behalf. The way TikTok and Instagram handle your data on their own platforms is
-              governed by their respective privacy policies, not this one.
+              requirements. Specifically, information received from TikTok&apos;s APIs is used only
+              to authenticate the user, show the connected TikTok account, and upload user-approved
+              content through TikTok&apos;s official API. We do not use TikTok data for advertising,
+              unrelated profiling, resale, or training AI models. We do not access followers,
+              messages, analytics, existing videos, or contacts unless a user later authorizes
+              additional scopes. The way TikTok and Instagram handle your data on their own platforms
+              is governed by their respective privacy policies, not this one.
             </p>
           </section>
 
@@ -138,9 +138,8 @@ export default async function Privacy() {
               We keep your information for as long as your account is active or as needed to provide
               the Service. We may retain certain information after account closure where necessary to
               comply with legal obligations, resolve disputes, or enforce our agreements. When you
-              disconnect a platform or delete your account, we revoke the related access tokens and
-              delete or de-identify associated data within a reasonable period, except where
-              retention is legally required.
+              disconnect TikTok or delete your account, we revoke the related access token and delete
+              associated TikTok connection data within 30 days, unless retention is required by law.
             </p>
           </section>
 

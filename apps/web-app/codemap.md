@@ -1,5 +1,22 @@
 # Codemap
 
+## 2026-06-29 — Privacy Policy & Terms aligned to TikTok `user.info.basic` + `video.upload` scopes
+
+- Rewrote Privacy Policy and Terms to accurately reflect actual TikTok integration:
+  - Only `user.info.basic` and `video.upload` scopes
+  - Draft/upload-only flow (inbox delivery, not direct publish)
+  - Removed all claims about auto-posting, recurring schedules, automated publishing
+  - Removed "username" from data collection (not available from `user.info.basic`)
+  - Updated disclosure language (users responsible, not auto-applied)
+  - Updated data retention to "within 30 days" for TikTok disconnect/deletion
+  - Replaced placeholder legal entity name with operator name
+- Files modified:
+  - `src/app/privacy/page.js`
+  - `src/app/terms/page.js`
+  - `codemap.md`
+- Verification: `pnpm run typecheck` passes with no errors.
+- Flagged: TikTok OAuth scope string in `src/lib/tiktok/auth.ts:67` still requests `video.publish` and `video.list` in production — must match before legal text is accurate.
+
 ## 2026-06-29 — Landing page auth buttons
 
 - Replaced "Get Early Access" CTA buttons with conditional Login/Dashboard buttons across the landing page and legal pages.

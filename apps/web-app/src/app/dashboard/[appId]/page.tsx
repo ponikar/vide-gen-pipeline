@@ -400,9 +400,9 @@ function ScheduleForm({ appId }: { appId: string }) {
 			<div className="flex items-center gap-3">
 				<Clock className="h-5 w-5 text-muted-foreground" />
 				<div>
-					<p className="text-sm font-medium">Schedule auto-posting</p>
+					<p className="text-sm font-medium">Schedule content upload</p>
 					<p className="text-xs text-muted-foreground">
-						The AI will generate and publish a video daily at your chosen time.
+						The AI will generate a video daily and upload it to TikTok at your chosen time. You review and publish inside TikTok.
 					</p>
 				</div>
 			</div>

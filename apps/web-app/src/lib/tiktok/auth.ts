@@ -64,7 +64,10 @@ export function getAuthUrl(params: {
 		"scope",
 		env.TIKTOK_MODE === "sandbox"
 			? "user.info.basic"
-			: "user.info.basic,video.upload,video.publish,video.list",
+			// We request video.publish and video.list now to avoid forcing
+		// re-authorization later — they'll be needed when we add
+		// optional autopilot mode (direct publish without review).
+		: "user.info.basic,video.upload,video.publish,video.list",
 	);
 	url.searchParams.set("state", params.state);
 	url.searchParams.set("code_challenge", codeChallenge);

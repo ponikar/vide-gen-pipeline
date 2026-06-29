@@ -298,6 +298,16 @@ Landing Technology Section Removal (2026-06-28)
 - Verification: `npm run typecheck`, source-reference search, and `git diff --check` pass.
 - Files modified in this iteration: `apps/web-app/src/components/landing-redesign/LandingPage.js`, `apps/web-app/src/components/landing-redesign/SiteEffects.js`, `apps/web-app/src/styles/landing-redesign.css`, `codemap.md`.
 
+TikTok Publish → Inbox/Draft Migration (2026-06-29)
+- Changed TikTok publishing from direct `postReel()` (publish immediately) to `uploadDraft()` (deliver to TikTok Inbox for user review). This aligns with the published Privacy Policy & Terms which only claim `user.info.basic` + `video.upload` scopes. Users must now review and publish each video inside TikTok.
+- `src/social/tiktok-provider.ts`: `createMedia` calls `uploadDraft()` instead of `postReel()`. `getMediaStatus` polls `/post/publish/status/fetch/` (inbox status) instead of `/video/publish/`. `publishMedia` stays as no-op (users publish inside TikTok).
+- `apps/agent-worker/src/orchestrator.ts`: TikTok pipeline calls `uploadDraft()` (no caption param). Post records get `sent_to_inbox` status (not `published`). Link is `null` (no permalink for inbox delivery).
+- `apps/web-app/src/components/landing-redesign/LandingPage.js`: "auto-posting" → "content upload" in How It Works section; "on autopilot" → "so you can stay focused on shipping" in Built for Builders section.
+- `apps/web-app/src/app/dashboard/[appId]/page.tsx`: "Schedule auto-posting" → "Schedule content upload"; "generate and publish a video daily" → "generate a video daily and upload it to TikTok at your chosen time. You review and publish inside TikTok."
+- TikTok OAuth scopes in `apps/web-app/src/lib/tiktok/auth.ts` kept as-is (including `video.publish`, `video.list`). Instagram provider/API routes unchanged. `postReel` function in `src/tiktok/post.ts` still exists but is no longer called.
+- Verification: web-app typecheck passes. Agent-worker typecheck only hits the pre-existing `@ai-sdk/provider` module error in `src/ai.ts`. Root typecheck only hits the two pre-existing errors.
+- Files modified in this iteration: `src/social/tiktok-provider.ts`, `apps/agent-worker/src/orchestrator.ts`, `apps/web-app/src/components/landing-redesign/LandingPage.js`, `apps/web-app/src/app/dashboard/[appId]/page.tsx`, `codemap.md`.
+
 Known Issues
 - Migrations 0006 and 0007 were registered in the journal but never run against Neon DB.
   Applied manually via psql on 2026-06-25.

@@ -106,7 +106,7 @@ export default function Home({ isSignedIn }) {
         <section className="whatwedo-intro section" id="approach">
           <div className="wrap">
             <div className="label scramble" data-text="How It Works"><span className="dot"></span><span className="label-text">How It Works</span></div>
-            <p className="reveal-text" id="revealText">Growing your app shouldn&apos;t feel like a second job. AttentionSpam makes it automatic. Through AI scripting, brainrot video generation, and auto-posting — we run the full content pipeline so you don&apos;t have to.</p>
+            <p className="reveal-text" id="revealText">Growing your app shouldn&apos;t feel like a second job. AttentionSpam makes it automatic. Through AI scripting, brainrot video generation, and content upload — your full content pipeline, so you don&apos;t have to think about it.</p>
           </div>
         </section>
 
@@ -217,7 +217,7 @@ export default function Home({ isSignedIn }) {
         <section className="flex-section" id="services">
           <div className="wrap">
             <div className="label scramble" data-text="Built for builders"><span className="dot"></span><span className="label-text">Built for builders</span></div>
-            <p className="reveal-text right" id="revealText2">Content that markets your app on autopilot. Consistent, on-trend, and built to grow your reach — while you stay focused on shipping.</p>
+            <p className="reveal-text right" id="revealText2">Content that markets your app, so you can stay focused on shipping. Consistent, on-trend, and built to grow your reach.</p>
           </div>
           <div className="service-cards">
             <article className="service-card reveal-up">
