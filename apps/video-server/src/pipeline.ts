@@ -91,6 +91,27 @@ export async function runPipeline(
 		const format = request.format ?? "subtitles";
 		const ttsSpeed = request.ttsSpeed ?? 1;
 
+		let chatConfig: InputConfig["chatConfig"] = request.chatConfig as
+			| InputConfig["chatConfig"]
+			| undefined;
+		if (format === "chat" && !chatConfig) {
+			const speakerKeys = Object.keys(voices);
+			const participants: Record<
+				string,
+				{ label: string; color: string; align: "left" | "right" }
+			> = {};
+			const colors = ["#007AFF", "#E5E5EA"];
+			const aligns: Array<"right" | "left"> = ["right", "left"];
+			speakerKeys.forEach((key, i) => {
+				participants[key] = {
+					label: key,
+					color: colors[i % 2],
+					align: aligns[i % 2],
+				};
+			});
+			chatConfig = { participants, typingIndicator: true };
+		}
+
 		const config: InputConfig = {
 			video,
 			output: outputPath,
@@ -101,7 +122,7 @@ export async function runPipeline(
 				text: line.text,
 			})),
 			format,
-			chatConfig: request.chatConfig as InputConfig["chatConfig"],
+			chatConfig,
 		};
 
 		const sourceVideoPath = await runStage(

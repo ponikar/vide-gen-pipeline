@@ -1,6 +1,6 @@
 import SiteEffects from "./SiteEffects";
 
-export default function Home() {
+export default function Home({ isSignedIn }) {
   return (
     <div className="vgs-site">
       {/* full-page background grid */}
@@ -29,7 +29,11 @@ export default function Home() {
           <a href="#pricing" className="scramble-link"><span className="t1">Pricing</span><span className="t2">Pricing</span></a>
           <a href="#faq" className="scramble-link"><span className="t1">FAQ</span><span className="t2">FAQ</span></a>
         </nav>
-        <a href="#footer" className="btn btn-light nav-cta">Get Early Access</a>
+        {isSignedIn ? (
+          <a href="/dashboard" className="btn btn-light nav-cta">Dashboard</a>
+        ) : (
+          <a href="/sign-in" className="btn btn-light nav-cta">Login</a>
+        )}
         <button className="hamburger" id="hamburger" aria-label="Menu">
           <span></span><span></span>
         </button>
@@ -40,7 +44,11 @@ export default function Home() {
         <a href="#roadmap">Roadmap</a>
         <a href="#pricing">Pricing</a>
         <a href="#faq">FAQ</a>
-        <a href="#footer" className="btn btn-light">Get Early Access</a>
+        {isSignedIn ? (
+          <a href="/dashboard" className="btn btn-light">Dashboard</a>
+        ) : (
+          <a href="/sign-in" className="btn btn-light">Login</a>
+        )}
       </div>
 
       <main id="top">
@@ -55,7 +63,11 @@ export default function Home() {
               </h1>
               <p className="hero-sub">AttentionSpam automatically scripts, creates, and posts brainrot videos to TikTok and Instagram. Zero effort from you.</p>
               <div className="hero-actions">
-                <a href="#footer" className="btn btn-light hero-cta">Get Early Access — Free <span className="arr">→</span></a>
+                {isSignedIn ? (
+                  <a href="/dashboard" className="btn btn-light hero-cta">Dashboard <span className="arr">→</span></a>
+                ) : (
+                  <a href="/sign-in" className="btn btn-light hero-cta">Login <span className="arr">→</span></a>
+                )}
                 <a href="#approach" className="btn btn-ghost">See how it works <span className="arr">↓</span></a>
               </div>
             </div>
@@ -353,7 +365,11 @@ export default function Home() {
                 <li>A fresh batch of videos every day</li>
                 <li>First access to new features</li>
               </ul>
-              <a href="#top" className="btn btn-light price-cta">Get Early Access — Free</a>
+              {isSignedIn ? (
+                <a href="/dashboard" className="btn btn-light price-cta">Dashboard</a>
+              ) : (
+                <a href="/sign-in" className="btn btn-light price-cta">Login</a>
+              )}
             </div>
           </div>
         </section>
@@ -447,7 +463,11 @@ export default function Home() {
                 <div className="cta-card">
                   <div className="label"><span className="dot"></span><span className="label-text">Ready to grow?</span></div>
                   <p className="cta-body">Built for indie devs who&apos;d rather ship than market. Set it up once, grow every day.</p>
-                  <a href="#top" className="btn btn-dark">Get Early Access — Free</a>
+                  {isSignedIn ? (
+                    <a href="/dashboard" className="btn btn-dark">Dashboard</a>
+                  ) : (
+                    <a href="/sign-in" className="btn btn-dark">Login</a>
+                  )}
                 </div>
                 <div className="footer-photo">
                   <img src="https://images.unsplash.com/photo-1607799279861-4dd421887fb3?w=1000&q=80&auto=format&fit=crop" alt="Indie developer working at night" />

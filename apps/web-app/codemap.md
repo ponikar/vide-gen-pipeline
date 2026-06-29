@@ -1,5 +1,20 @@
 # Codemap
 
+## 2026-06-29 — Landing page auth buttons
+
+- Replaced "Get Early Access" CTA buttons with conditional Login/Dashboard buttons across the landing page and legal pages.
+- Uses Clerk `auth()` (server-side) to check authentication state and conditionally render:
+  - Logged out → links to `/sign-in` with "Login"
+  - Logged in → links to `/dashboard` with "Dashboard"
+- Clerk env vars already configured with `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard`, so sign-in flow automatically redirects to dashboard.
+- Files modified:
+  - `src/app/page.tsx`
+  - `src/components/landing-redesign/LandingPage.js`
+  - `src/app/terms/page.js`
+  - `src/app/privacy/page.js`
+  - `codemap.md`
+- Verification: `pnpm run typecheck` passes with no errors.
+
 ## 2026-06-28 — TikTok OAuth redirect URI
 
 - Changed the TikTok authorization and token-exchange flows to use the registered production callback URI exactly.

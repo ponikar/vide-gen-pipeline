@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 
 export const metadata = {
   title: "Terms & Conditions — AttentionSpam",
@@ -13,7 +14,8 @@ const Bird = ({ size = 20 }) => (
   </svg>
 );
 
-export default function Terms() {
+export default async function Terms() {
+  const { userId } = await auth();
   return (
     <div className="vgs-site">
       <div className="bg-grid" aria-hidden="true"></div>
@@ -23,7 +25,11 @@ export default function Terms() {
           <Bird size={20} />
           <span>AttentionSpam</span>
         </Link>
-        <Link href="/#footer" className="btn btn-light">Get Early Access</Link>
+        {userId ? (
+          <Link href="/dashboard" className="btn btn-light">Dashboard</Link>
+        ) : (
+          <Link href="/sign-in" className="btn btn-light">Login</Link>
+        )}
       </header>
 
       <main className="legal">
