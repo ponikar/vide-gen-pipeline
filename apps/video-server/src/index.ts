@@ -7,6 +7,7 @@ import {
 	elapsedMs,
 	getRequestId,
 	REQUEST_ID_HEADER,
+	USER_ID_HEADER,
 } from "../../../src/logger.js";
 import { preloadTts } from "../../../src/tts.js";
 import type { GenerateRequest } from "./pipeline.js";
@@ -21,7 +22,7 @@ type AppEnv = {
 
 const app = new Hono<AppEnv>();
 const instanceId = randomUUID();
-const logger = createLogger("video-server", { instanceId });
+const logger = createLogger("video-server", { instanceId, source: "video-server/src/index.ts" });
 
 app.use(
 	"/*",
@@ -34,9 +35,14 @@ app.use(
 app.use("/*", async (c, next) => {
 	const requestId = getRequestId(c.req.raw.headers);
 	const startedAt = performance.now();
-	const requestLogger = logger.child({ requestId });
+	const userId = c.req.raw.headers.get(USER_ID_HEADER)?.trim() || undefined;
+	const requestLogger = logger.child({
+		requestId,
+		...(userId ? { userId } : {}),
+	});
 	c.set("requestId", requestId);
 	c.header(REQUEST_ID_HEADER, requestId);
+	if (userId) c.header(USER_ID_HEADER, userId);
 
 	try {
 		await next();
@@ -134,6 +140,14 @@ app.get("/api/output/:jobId", (c) => {
 });
 
 const PORT = Number(process.env.PORT ?? 3001);
+
+const shutdown = async (signal: string) => {
+  logger.info("service.shutting_down", "Video server shutting down", { signal });
+  await logger.flush();
+  process.exit(0);
+};
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 const startupStartedAt = performance.now();
 logger.info("service.starting", "Video server is starting", { port: PORT });

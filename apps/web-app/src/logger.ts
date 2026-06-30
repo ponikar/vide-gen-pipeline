@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 export const REQUEST_ID_HEADER = "x-request-id";
+export const USER_ID_HEADER = "x-user-id";
 
 const LEVELS = {
   debug: 10,

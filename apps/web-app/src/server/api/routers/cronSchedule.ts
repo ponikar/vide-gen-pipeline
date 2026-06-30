@@ -10,7 +10,7 @@ import {
 	videoJobs,
 } from "@/db/schema";
 import { protectedProcedure, router } from "@/server/trpc";
-import { REQUEST_ID_HEADER } from "@/logger";
+import { REQUEST_ID_HEADER, USER_ID_HEADER } from "@/logger";
 
 const AGENT_WORKER_URL =
 	process.env.AGENT_WORKER ?? "http://localhost:3002";
@@ -19,6 +19,7 @@ async function notifyAgentWorker(
 	path: string,
 	requestId: string,
 	body?: Record<string, unknown>,
+	userId?: string,
 ) {
 	const url = `${AGENT_WORKER_URL}${path}`;
 	const res = await fetch(url, {
@@ -26,6 +27,7 @@ async function notifyAgentWorker(
 		headers: {
 			...(body ? { "Content-Type": "application/json" } : {}),
 			[REQUEST_ID_HEADER]: requestId,
+			...(userId ? { [USER_ID_HEADER]: userId } : {}),
 		},
 		body: body ? JSON.stringify(body) : undefined,
 	});
@@ -107,7 +109,7 @@ export const cronScheduleRouter = router({
 				schedule_days: input.scheduleDays,
 				timezone: input.timezone,
 				social_platforms: input.socialPlatforms,
-			});
+			}, ctx.clerkUserId);
 			ctx.logger.info(
 				"schedule.worker_configured",
 				"Agent worker accepted the schedule configuration",
@@ -296,7 +298,7 @@ export const cronScheduleRouter = router({
 					timezone: input.timezone,
 					social_platforms: ["tiktok"],
 					scheduled_at: input.scheduledAt.toISOString(),
-				});
+				}, ctx.clerkUserId);
 			} catch (error) {
 				await ctx.db
 					.update(videoJobs)
@@ -445,7 +447,7 @@ export const cronScheduleRouter = router({
 				);
 			if (!app) throw new Error("App not found");
 
-			await notifyAgentWorker(`/api/schedules/${input.id}`, ctx.requestId);
+			await notifyAgentWorker(`/api/schedules/${input.id}`, ctx.requestId, undefined, ctx.clerkUserId);
 			await ctx.db.delete(cronSchedules).where(eq(cronSchedules.id, input.id));
 			ctx.logger.info("schedule.deleted", "Schedule was removed", {
 				appId: schedule.appId,

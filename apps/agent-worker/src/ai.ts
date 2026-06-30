@@ -19,7 +19,7 @@ import {
 	type BackgroundVideoOption,
 } from "./skills.js";
 
-const logger = createLogger("agent-worker", { component: "ai" });
+const logger = createLogger("agent-worker", { component: "ai", source: "agent-worker/src/ai.ts" });
 
 function extractJsonObject(text: string): string {
 	const trimmed = text

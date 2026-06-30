@@ -48,6 +48,7 @@ export async function runPipeline(
 		jobId,
 		scheduleId,
 		appId,
+		source: "agent-worker/src/orchestrator.ts",
 	});
 	let currentPhase = "starting";
 	let phaseStartedAt = performance.now();

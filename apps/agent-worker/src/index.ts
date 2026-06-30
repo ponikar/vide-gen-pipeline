@@ -10,6 +10,7 @@ import {
 	elapsedMs,
 	getRequestId,
 	REQUEST_ID_HEADER,
+	USER_ID_HEADER,
 } from "../../../src/logger.js";
 import { createDb } from "./db.js";
 import { generateOnboardingPreviewPayloads } from "./fine-tune.js";
@@ -24,7 +25,7 @@ type AppEnv = {
 };
 
 const app = new Hono<AppEnv>();
-const logger = createLogger("agent-worker");
+const logger = createLogger("agent-worker", { source: "agent-worker/src/index.ts" });
 const NUDGE_CMD =
 	process.env.CRON_NUDGE_COMMAND ??
 	`tsx ${new URL("../scripts/nudge.ts", import.meta.url).pathname}`;
@@ -103,9 +104,14 @@ app.use("/*", cors());
 app.use("/*", async (c, next) => {
 	const requestId = getRequestId(c.req.raw.headers);
 	const startedAt = performance.now();
-	const requestLogger = logger.child({ requestId });
+	const userId = c.req.raw.headers.get(USER_ID_HEADER)?.trim() || undefined;
+	const requestLogger = logger.child({
+		requestId,
+		...(userId ? { userId } : {}),
+	});
 	c.set("requestId", requestId);
 	c.header(REQUEST_ID_HEADER, requestId);
+	if (userId) c.header(USER_ID_HEADER, userId);
 	requestLogger.info("http.request_started", "Request started", {
 		method: c.req.method,
 		path: c.req.path,
@@ -379,4 +385,14 @@ app.delete("/api/schedules/:id", async (c) => {
 
 const port = Number(process.env.PORT ?? 3002);
 logger.info("service.started", "Agent worker is listening", { port });
-serve({ fetch: app.fetch, port });
+
+const server = serve({ fetch: app.fetch, port });
+
+const shutdown = async (signal: string) => {
+  logger.info("service.shutting_down", "Agent worker shutting down", { signal });
+  await logger.flush();
+  server.close();
+  process.exit(0);
+};
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

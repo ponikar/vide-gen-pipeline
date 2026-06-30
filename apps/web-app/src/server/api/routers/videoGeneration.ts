@@ -6,6 +6,7 @@ import { env } from "@/env";
 import { protectedProcedure, router } from "@/server/trpc";
 import {
 	REQUEST_ID_HEADER,
+	USER_ID_HEADER,
 	safeErrorMessage,
 } from "@/logger";
 
@@ -80,6 +81,7 @@ async function readError(res: Response): Promise<string> {
 async function getPreviewPayloads(
 	appId: string,
 	requestId: string,
+	userId?: string,
 	idea?: string,
 ): Promise<PreviewPayload[]> {
 	const res = await fetch(`${env.AGENT_WORKER}/api/onboarding/preview-payloads`, {
@@ -87,6 +89,7 @@ async function getPreviewPayloads(
 		headers: {
 			"Content-Type": "application/json",
 			[REQUEST_ID_HEADER]: requestId,
+			...(userId ? { [USER_ID_HEADER]: userId } : {}),
 		},
 		body: JSON.stringify({
 			app_id: appId,
@@ -116,12 +119,14 @@ async function getPreviewPayloads(
 async function scheduleVideo(
 	payload: PreviewPayload,
 	requestId: string,
+	userId?: string,
 ): Promise<string> {
 	const res = await fetch(`${env.VIDEO_SERVER_URL}/api/generate`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
 			[REQUEST_ID_HEADER]: requestId,
+			...(userId ? { [USER_ID_HEADER]: userId } : {}),
 		},
 		body: JSON.stringify(payload),
 	});
@@ -202,6 +207,7 @@ export const videoGenerationRouter = router({
 			const payloads = await getPreviewPayloads(
 				app.id,
 				ctx.requestId,
+				ctx.clerkUserId,
 				input.idea,
 			);
 			ctx.logger.info(
@@ -232,7 +238,7 @@ export const videoGenerationRouter = router({
 				});
 
 				try {
-					const jobId = await scheduleVideo(payload, ctx.requestId);
+					const jobId = await scheduleVideo(payload, ctx.requestId, ctx.clerkUserId);
 
 					const [saved] = await ctx.db
 						.update(videoJobs)
@@ -347,7 +353,12 @@ export const videoGenerationRouter = router({
 				try {
 					const res = await fetch(
 						`${env.VIDEO_SERVER_URL}/api/status/${job.videoServerJobId}`,
-						{ headers: { [REQUEST_ID_HEADER]: ctx.requestId } },
+						{
+							headers: {
+								[REQUEST_ID_HEADER]: ctx.requestId,
+								...(ctx.clerkUserId ? { [USER_ID_HEADER]: ctx.clerkUserId } : {}),
+							},
+						},
 					);
 
 					if (res.status === 404) {
@@ -499,7 +510,7 @@ export const videoGenerationRouter = router({
 				});
 			}
 
-			const jobId = await scheduleVideo(payload.data, ctx.requestId);
+			const jobId = await scheduleVideo(payload.data, ctx.requestId, ctx.clerkUserId);
 
 			const [updated] = await ctx.db
 				.update(videoJobs)

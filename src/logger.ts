@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { ingestAxiom, flushAxiom } from "./axiom.js";
 
 export const REQUEST_ID_HEADER = "x-request-id";
+export const USER_ID_HEADER = "x-user-id";
 
 const LEVELS = {
   debug: 10,
@@ -150,8 +152,10 @@ export class Logger {
   ): void {
     if (LEVELS[level] < LEVELS[configuredLevel()]) return;
 
+    const now = new Date();
     const entry = sanitizeFields({
-      timestamp: new Date().toISOString(),
+      _time: now.toISOString(),
+      timestamp: now.toISOString(),
       level,
       service: this.service,
       event,
@@ -168,6 +172,12 @@ export class Logger {
     } else {
       console.log(line);
     }
+
+    ingestAxiom(this.service, entry);
+  }
+
+  async flush(): Promise<void> {
+    await flushAxiom();
   }
 }
 

@@ -19,7 +19,7 @@ export async function uploadScheduledPost(
 	scheduleId: string,
 	requestId: string,
 ): Promise<void> {
-	const logger = createLogger("agent-worker", { requestId, scheduleId });
+	const logger = createLogger("agent-worker", { requestId, scheduleId, source: "agent-worker/src/scheduled-post.ts" });
 	const [row] = await db`
 		SELECT
 			p.id,
