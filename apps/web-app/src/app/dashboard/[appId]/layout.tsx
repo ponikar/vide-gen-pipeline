@@ -28,11 +28,11 @@ export default function AppLayout({
 			href: `/dashboard/${appId}/social`,
 			icon: Share2,
 		},
-		// {
-		// 	label: "Settings",
-		// 	href: `/dashboard/${appId}`,
-		// 	icon: Settings,
-		// },
+		{
+			label: "Settings",
+			href: `/dashboard/${appId}/settings`,
+			icon: Settings,
+		},
 	];
 
 	return (

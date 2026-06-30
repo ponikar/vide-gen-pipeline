@@ -141,6 +141,22 @@ export const connectedAccounts = pgTable("connected_accounts", {
 		.$onUpdate(() => new Date()),
 });
 
+export const deleteAccountRequests = pgTable("delete_account_requests", {
+	id: uuid("id").defaultRandom().primaryKey(),
+	clerkUserId: text("clerk_user_id").notNull(),
+	reason: text("reason"),
+	additionalInfo: text("additional_info"),
+	status: text("status").default("pending").notNull(),
+	processedAt: timestamp("processed_at", { withTimezone: true }),
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.defaultNow()
+		.notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.defaultNow()
+		.notNull()
+		.$onUpdate(() => new Date()),
+});
+
 export const cronSchedules = pgTable("cron_schedules", {
 	id: uuid("id").defaultRandom().primaryKey(),
 	appId: uuid("app_id")

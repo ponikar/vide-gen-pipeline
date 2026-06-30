@@ -1,6 +1,8 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { and, eq, inArray, sql } from "drizzle-orm";
+
+
 import { z } from "zod";
 import {
 	apps,
@@ -158,6 +160,7 @@ export const cronScheduleRouter = router({
 				videoJobId: z.string().uuid(),
 				scheduledAt: z.date(),
 				timezone: z.string().min(1),
+				platforms: z.array(z.enum(["tiktok", "instagram"])).min(1),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -202,19 +205,27 @@ export const cronScheduleRouter = router({
 				});
 			}
 
-			const [tiktokAccount] = await ctx.db
-				.select({ id: connectedAccounts.id })
+			const accounts = await ctx.db
+				.select({ provider: connectedAccounts.provider })
 				.from(connectedAccounts)
 				.where(
 					and(
 						eq(connectedAccounts.appId, input.appId),
-						eq(connectedAccounts.provider, "tiktok"),
 					),
 				);
-			if (!tiktokAccount) {
+			const connectedProviders = new Set(
+				accounts.map((a) => a.provider),
+			);
+			const missing = input.platforms.filter(
+				(p) => !connectedProviders.has(p),
+			);
+			if (missing.length > 0) {
+				const list = missing
+					.map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+					.join(" and ");
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
-					message: "Connect your TikTok account before scheduling.",
+					message: `Connect your ${list} account${missing.length > 1 ? "s" : ""} before scheduling.`,
 				});
 			}
 
@@ -224,7 +235,7 @@ export const cronScheduleRouter = router({
 					? (params.meta as Record<string, unknown>)
 					: {};
 			const idea =
-				typeof meta.idea === "string" ? meta.idea : "Generated TikTok video";
+				typeof meta.idea === "string" ? meta.idea : "Generated video";
 			if (meta.flow !== "on_demand") {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
@@ -249,39 +260,41 @@ export const cronScheduleRouter = router({
 
 			const scheduleId = randomUUID();
 			const secret = generateSecret();
-			let postId: string | null = null;
+			const postIds: string[] = [];
 
 			try {
-				const [post] = await ctx.db
-					.insert(posts)
-					.values({
-						appId: input.appId,
-						title: idea.slice(0, 200),
-						description:
-							typeof meta.videoDescription === "string"
-								? meta.videoDescription
-								: null,
-						platform: "tiktok",
-						videoJobId: job.id,
-						status: "scheduled",
-						type: "user_approved",
-						scheduledAt: input.scheduledAt,
-						meta: {
-							outputUrl: job.outputUrl,
-							timezone: input.timezone,
-						},
-					})
-					.returning({ id: posts.id });
-				postId = post.id;
+				for (const platform of input.platforms) {
+					const [post] = await ctx.db
+						.insert(posts)
+						.values({
+							appId: input.appId,
+							title: idea.slice(0, 200),
+							description:
+								typeof meta.videoDescription === "string"
+									? meta.videoDescription
+									: null,
+							platform,
+							videoJobId: job.id,
+							status: "scheduled",
+							type: "user_approved",
+							scheduledAt: input.scheduledAt,
+							meta: {
+								outputUrl: job.outputUrl,
+								timezone: input.timezone,
+							},
+						})
+						.returning({ id: posts.id });
+					postIds.push(post.id);
+				}
 
 				await ctx.db.insert(cronSchedules).values({
 					id: scheduleId,
 					appId: input.appId,
-					name: "Approved TikTok post",
+					name: `Approved post (${input.platforms.join(", ")})`,
 					scheduleTime: `${hour}:${minute}`,
 					scheduleDays: ["once"],
 					timezone: input.timezone,
-					socialPlatforms: ["tiktok"],
+					socialPlatforms: input.platforms,
 					webhookSecret: secret,
 				});
 
@@ -296,7 +309,7 @@ export const cronScheduleRouter = router({
 					schedule_time: `${hour}:${minute}`,
 					schedule_days: ["once"],
 					timezone: input.timezone,
-					social_platforms: ["tiktok"],
+					social_platforms: input.platforms,
 					scheduled_at: input.scheduledAt.toISOString(),
 				}, ctx.clerkUserId);
 			} catch (error) {
@@ -307,19 +320,20 @@ export const cronScheduleRouter = router({
 				await ctx.db
 					.delete(cronSchedules)
 					.where(eq(cronSchedules.id, scheduleId));
-				if (postId) {
-					await ctx.db.delete(posts).where(eq(posts.id, postId));
+				if (postIds.length > 0) {
+					await ctx.db.delete(posts).where(inArray(posts.id, postIds));
 				}
 				throw error;
 			}
 
 			ctx.logger.info(
 				"schedule.post_created",
-				"User-approved TikTok post was scheduled",
+				"User-approved post was scheduled",
 				{
 					appId: input.appId,
-					postId,
+					postIds,
 					scheduleId,
+					platforms: input.platforms,
 					scheduledAt: input.scheduledAt,
 					timezone: input.timezone,
 					stateSaved: true,
@@ -327,7 +341,7 @@ export const cronScheduleRouter = router({
 			);
 
 			return {
-				postId: postId!,
+				postIds,
 				scheduleId,
 				scheduledAt: input.scheduledAt,
 				timezone: input.timezone,

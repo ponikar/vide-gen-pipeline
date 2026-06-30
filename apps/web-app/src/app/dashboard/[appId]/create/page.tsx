@@ -10,7 +10,10 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { InstagramIcon, TikTokIcon } from "@/components/social-icons";
 import { api } from "@/trpc/react";
+
+const PLATFORMS = ["tiktok", "instagram"] as const;
 
 type VideoJob = {
 	id: string;
@@ -30,6 +33,7 @@ export default function CreatePostPage() {
 	const [time, setTime] = useState("");
 	const [timezone, setTimezone] = useState("UTC");
 	const [formError, setFormError] = useState<string | null>(null);
+	const [platforms, setPlatforms] = useState<("tiktok" | "instagram")[]>(["tiktok"]);
 
 	const { data: app, isLoading: appLoading } = api.app.getById.useQuery({
 		id: appId,
@@ -45,14 +49,23 @@ export default function CreatePostPage() {
 		},
 	});
 
-	const hasTikTok = accounts?.some((account) => account.provider === "tiktok");
-	const relatedPost = posts?.find(
+	const connectedProviders = new Set(
+		accounts?.map((a) => a.provider) ?? [],
+	);
+	const missingPlatforms = platforms.filter(
+		(p) => !connectedProviders.has(p),
+	);
+	const hasAllConnected = missingPlatforms.length === 0;
+
+	const scheduledPosts = posts?.filter(
 		(post) =>
 			post.videoJobId === job?.id &&
-			post.platform === "tiktok" &&
 			post.type === "user_approved",
+	) ?? [];
+	const scheduledPlatforms = new Set(
+		scheduledPosts.map((p) => p.platform),
 	);
-	const isScheduled = Boolean(relatedPost);
+	const allScheduled = platforms.every((p) => scheduledPlatforms.has(p));
 
 	const pollJob = useCallback(
 		(id: string) => {
@@ -163,6 +176,7 @@ export default function CreatePostPage() {
 				videoJobId: job.id,
 				scheduledAt,
 				timezone,
+				platforms,
 			},
 			{ onError: (error) => setFormError(error.message) },
 		);
@@ -190,26 +204,66 @@ export default function CreatePostPage() {
 					<ArrowLeft className="h-4 w-4" />
 					Back to {app.name}
 				</Link>
-				<h1 className="text-2xl font-bold">Create a TikTok post</h1>
+				<h1 className="text-2xl font-bold">Create a post</h1>
 				<p className="mt-1 text-sm text-muted-foreground">
 					Describe the video you want. You will review it before anything is
-					sent to TikTok.
+					sent to your connected accounts.
 				</p>
 			</div>
 
-			{!hasTikTok ? (
+			<div className="space-y-2 rounded-lg border p-4">
+				<label className="text-sm font-medium">Platforms</label>
+				<div className="flex gap-2">
+					{PLATFORMS.map((p) => (
+						<button
+							key={p}
+							type="button"
+							onClick={() =>
+								setPlatforms((prev) =>
+									prev.includes(p)
+										? prev.filter((x) => x !== p)
+										: [...prev, p],
+								)
+							}
+							className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs border capitalize ${
+								platforms.includes(p)
+									? "bg-primary text-primary-foreground border-primary"
+									: "hover:bg-accent"
+							}`}
+						>
+							{p === "tiktok" ? (
+								<TikTokIcon className="h-3.5 w-3.5" />
+							) : (
+								<InstagramIcon className="h-3.5 w-3.5" />
+							)}
+							{p}
+						</button>
+					))}
+				</div>
+			</div>
+
+			{!hasAllConnected ? (
 				<div className="rounded-lg border border-yellow-500/40 bg-yellow-500/5 p-4">
-					<p className="text-sm font-medium">Connect TikTok first</p>
+					<p className="text-sm font-medium">Connect your accounts first</p>
 					<p className="mt-1 text-xs text-muted-foreground">
-						A connected TikTok account is required to generate and schedule
-						this post.
+						Connect {missingPlatforms.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" and ")} to continue.
 					</p>
-					<Link
-						href={`/api/auth/tiktok?appId=${appId}`}
-						className="mt-3 inline-flex rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
-					>
-						Connect TikTok
-					</Link>
+					<div className="mt-3 flex gap-2">
+						{missingPlatforms.map((p) => (
+							<Link
+								key={p}
+								href={`/api/auth/${p}?appId=${appId}`}
+								className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+							>
+								{p === "tiktok" ? (
+									<TikTokIcon className="h-4 w-4" />
+								) : (
+									<InstagramIcon className="h-4 w-4" />
+								)}
+								Connect {p.charAt(0).toUpperCase() + p.slice(1)}
+							</Link>
+						))}
+					</div>
 				</div>
 			) : (
 				<>
@@ -272,14 +326,14 @@ export default function CreatePostPage() {
 						</div>
 					)}
 
-					{job?.status === "done" && job.outputUrl && !isScheduled && (
+					{job?.status === "done" && job.outputUrl && !allScheduled && (
 						<div className="space-y-4 rounded-lg border p-4">
 							<div className="flex items-center gap-2">
 								<CalendarClock className="h-5 w-5 text-muted-foreground" />
 								<div>
 									<h2 className="font-semibold">Schedule this video</h2>
 									<p className="text-xs text-muted-foreground">
-										The selected time uses your local timezone: {timezone}
+										Posting to {platforms.join(" and ")} &middot; your timezone: {timezone}
 									</p>
 								</div>
 							</div>
@@ -310,8 +364,8 @@ export default function CreatePostPage() {
 								</div>
 							</div>
 							<p className="text-xs text-muted-foreground">
-								At this time, AttentionSpam will send the approved video to your
-								TikTok Inbox. Open the TikTok notification to review and publish it.
+								At this time, AttentionSpam will process your video for each platform.
+								TikTok goes to your inbox for review; Instagram is published directly.
 							</p>
 							<button
 								type="button"
@@ -322,27 +376,37 @@ export default function CreatePostPage() {
 								{schedulePost.isPending && (
 									<Loader2 className="h-4 w-4 animate-spin" />
 								)}
-								Schedule TikTok upload
+								{schedulePost.isPending ? "Scheduling..." : "Schedule post"}
 							</button>
 						</div>
 					)}
 
-					{relatedPost && (
-						<div className="rounded-lg border border-green-500/40 bg-green-500/5 p-4">
-							<p className="text-sm font-medium">
-								{relatedPost.status === "sent_to_inbox"
-									? "Video sent to TikTok Inbox"
-									: relatedPost.status === "failed"
-										? "TikTok upload failed"
-										: "TikTok upload scheduled"}
-							</p>
-							<p className="mt-1 text-xs text-muted-foreground">
-								{relatedPost.status === "sent_to_inbox"
-									? "Open TikTok and use the inbox notification to finish your post."
-									: relatedPost.scheduledAt
-										? new Date(relatedPost.scheduledAt).toLocaleString()
-										: "Your approved video is scheduled."}
-							</p>
+					{scheduledPosts.length > 0 && (
+						<div className="space-y-2">
+							{scheduledPosts.map((sp) => (
+								<div key={sp.id} className="rounded-lg border border-green-500/40 bg-green-500/5 p-4">
+									<p className="flex items-center gap-1.5 text-sm font-medium capitalize">
+										{sp.platform === "tiktok" ? (
+											<TikTokIcon className="h-4 w-4" />
+										) : (
+											<InstagramIcon className="h-4 w-4" />
+										)}
+										{sp.platform}:{" "}
+										{sp.status === "sent_to_inbox"
+											? "Sent to inbox"
+											: sp.status === "failed"
+												? "Upload failed"
+												: "Scheduled"}
+									</p>
+									<p className="mt-1 text-xs text-muted-foreground">
+										{sp.status === "sent_to_inbox" && sp.platform === "tiktok"
+											? "Open TikTok and use the inbox notification to finish your post."
+											: sp.scheduledAt
+												? new Date(sp.scheduledAt).toLocaleString()
+												: "Processing..."}
+									</p>
+								</div>
+							))}
 						</div>
 					)}
 				</>

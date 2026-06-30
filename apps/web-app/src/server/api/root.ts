@@ -4,6 +4,7 @@ import { apiKeyRouter } from "./routers/apiKey";
 import { appRouter as appsRouter } from "./routers/apps";
 import { connectedAccountRouter } from "./routers/connectedAccounts";
 import { cronScheduleRouter } from "./routers/cronSchedule";
+import { deleteAccountRequestRouter } from "./routers/deleteAccountRequest";
 import { onboardingRouter } from "./routers/onboarding";
 import { postRouter } from "./routers/posts";
 import { videoGenerationRouter } from "./routers/videoGeneration";
@@ -17,6 +18,7 @@ export const appRouter = router({
 	connectedAccount: connectedAccountRouter,
 	videoGeneration: videoGenerationRouter,
 	cronSchedule: cronScheduleRouter,
+	deleteAccountRequest: deleteAccountRequestRouter,
 });
 
 export type AppRouter = typeof appRouter;

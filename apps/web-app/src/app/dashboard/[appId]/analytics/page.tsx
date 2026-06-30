@@ -4,6 +4,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Eye, Loader2, RefreshCw, Trending
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { InstagramIcon, TikTokIcon } from "@/components/social-icons";
 import { api } from "@/trpc/react";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -203,7 +204,13 @@ export default function AnalyticsPage() {
 								<div className="flex items-center gap-1">
 									{scheduleDays.socialPlatforms.map((p) => (
 										<span key={p} className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
-											{p === "instagram" ? "IG" : p === "tiktok" ? "TT" : p}
+											{p === "instagram" ? (
+												<InstagramIcon className="h-3.5 w-3.5" />
+											) : p === "tiktok" ? (
+												<TikTokIcon className="h-3.5 w-3.5" />
+											) : (
+												p
+											)}
 										</span>
 									))}
 								</div>
@@ -311,8 +318,12 @@ export default function AnalyticsPage() {
 											className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2"
 										>
 											<div className="flex items-center gap-2 min-w-0">
-												<span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
-													{p.platform === "instagram" ? "IG" : "TT"}
+												<span className="rounded bg-muted p-1 text-muted-foreground">
+													{p.platform === "instagram" ? (
+														<InstagramIcon className="h-3 w-3" />
+													) : (
+														<TikTokIcon className="h-3 w-3" />
+													)}
 												</span>
 												<span className="truncate text-sm">{p.title}</span>
 											</div>
