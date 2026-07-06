@@ -3,7 +3,7 @@
 import { ArrowLeft, ChevronLeft, ChevronRight, Eye, Loader2, RefreshCw, TrendingDown, TrendingUp, X } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { InstagramIcon, TikTokIcon } from "@/components/social-icons";
 import { api } from "@/trpc/react";
 
@@ -18,6 +18,96 @@ type DayData = {
 	totalComments: number;
 	totalShares: number;
 	posts: string;
+};
+
+function generateDemoCalendarData(year: number, month: number) {
+	const daysInMonth = new Date(year, month, 0).getDate();
+	const days: DayData[] = [];
+	let totalPosts = 0;
+	let totalViews = 0;
+
+	const demoPosts = [
+		{ title: "Product launch teaser", platform: "instagram", videoType: "reel" },
+		{ title: "Behind the scenes", platform: "tiktok", videoType: "ugc" },
+		{ title: "Customer testimonial", platform: "instagram", videoType: "ugc" },
+		{ title: "How-to tutorial", platform: "tiktok", videoType: "slideshow" },
+		{ title: "Weekly roundup", platform: "instagram", videoType: "reel" },
+		{ title: "Feature spotlight", platform: "tiktok", videoType: "brainrot" },
+		{ title: "Industry news", platform: "instagram", videoType: "slideshow" },
+		{ title: "Q&A response", platform: "tiktok", videoType: "ugc" },
+	];
+
+	let postIdx = 0;
+
+	for (let d = 1; d <= daysInMonth; d++) {
+		const date = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+		const showDay =
+			(d <= 7 || d % 2 === 0) &&
+			d % 5 !== 0 &&
+			d % 12 !== 0;
+		if (!showDay) continue;
+
+		const postCount = d % 4 === 0 ? 2 : 1;
+		totalPosts += postCount;
+
+		const posts = [];
+		for (let i = 0; i < postCount; i++) {
+			const dp = demoPosts[postIdx % demoPosts.length];
+			postIdx++;
+			const base = d <= 7 ? 200 + d * 50 : 400 + (d % 15) * 180;
+			const views = base + Math.floor(Math.sin(d * 2.7) * 200);
+			const likes = Math.floor(views * (0.03 + (d % 5) * 0.008));
+			const comments = Math.floor(likes * (0.04 + (d % 3) * 0.02));
+			const shares = Math.floor(views * (0.01 + (d % 7) * 0.004));
+			totalViews += views;
+			posts.push({
+				id: `demo-${date}-${i}`,
+				title: dp.title,
+				platform: dp.platform,
+				views,
+				likes,
+				comments,
+				shares,
+				reach: dp.platform === "instagram" ? Math.floor(views * 1.3) : null,
+				link: null,
+				videoType: dp.videoType,
+			});
+		}
+
+		days.push({
+			date,
+			postCount,
+			totalViews: posts.reduce((s, p) => s + p.views, 0),
+			totalLikes: posts.reduce((s, p) => s + p.likes, 0),
+			totalComments: posts.reduce((s, p) => s + p.comments, 0),
+			totalShares: posts.reduce((s, p) => s + p.shares, 0),
+			posts: JSON.stringify(posts),
+		});
+	}
+
+	return {
+		days,
+		monthTotalPosts: totalPosts,
+		monthTotalViews: totalViews,
+		cronSchedule: {
+			scheduleTime: "14:30",
+			timezone: "America/New_York",
+			scheduleDays: ["Monday", "Wednesday", "Friday"],
+			socialPlatforms: ["tiktok", "instagram"],
+		},
+	} satisfies CalendarData;
+}
+
+type CalendarData = {
+	days: DayData[];
+	monthTotalPosts: number;
+	monthTotalViews: number;
+	cronSchedule: {
+		scheduleTime: string;
+		timezone: string;
+		scheduleDays: string[];
+		socialPlatforms: string[];
+	} | null;
 };
 
 function parseDayPosts(raw: string) {
@@ -46,21 +136,27 @@ export default function AnalyticsPage() {
 	const [month, setMonth] = useState(now.getMonth() + 1);
 	const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-	const { data, isLoading, refetch } = api.analytics.getCalendar.useQuery({
+	const { data: realData, isLoading, refetch } = api.analytics.getCalendar.useQuery({
 		appId,
 		year,
 		month,
 	});
+
+	const demoData = useMemo(
+		() => generateDemoCalendarData(year, month),
+		[year, month],
+	);
+
+	const hasRealData = (realData?.days?.length ?? 0) > 0;
 
 	const refreshStats = api.analytics.refreshStats.useMutation({
 		onSuccess: () => refetch(),
 	});
 
 	const daysMap = new Map<string, DayData>();
-	if (data) {
-		for (const d of data.days) {
-			daysMap.set(d.date, d);
-		}
+	const data: CalendarData = hasRealData ? (realData as CalendarData) : demoData;
+	for (const d of data.days) {
+		daysMap.set(d.date, d);
 	}
 
 	const todayStr = dateStr(now.getDate());
