@@ -18,3 +18,4 @@ voices/*.wav
 .gstack/browse-network.log
 sadtalker/
 .gstack/
+.env.development
