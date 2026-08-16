@@ -121,12 +121,12 @@ npm run instagram:insights -- --token *** --media-id <media_id>
 
 | Script | Purpose | Location |
 |---|---|---|
-| `gen_tts.py` | Generate TTS MP3 segments | `/root/.openclaw/workspace/gen_tts.py` |
-| `generate_srt.py` | Transcribe audio → SRT captions | `/root/.openclaw/workspace/generate_srt.py` |
+| `gen_tts.py` | Generate TTS MP3 segments | `scripts/gen_tts.py` |
+| `generate_srt.py` | Transcribe audio → SRT captions | `scripts/generate_srt.py` |
 | `generate_reelXX.py` | TTS generation for specific reel | `experiments/<app>/generate_reelXX.py` |
 | `assemble_reel.py` | FFmpeg assembly for specific reel | `experiments/<app>/assemble_reel.py` |
 | `pipeline.ts` | Instagram post + insights | `landing-page/src/lib/instagram/pipeline.ts` |
-| `brainrot-videos.md` | Gameplay clip URLs | `/root/.openclaw/workspace/brainrot-videos.md` |
+| `brainrot-videos.md` | Gameplay clip URLs | `video-urls.md` |
 
 ## Brainrot Video Layout
 
@@ -208,7 +208,7 @@ ffmpeg -y \
 
 ## Production Parameters (Locked from Live Testing)
 
-These parameters are locked based on production learning. Do not change without Darshan's approval.
+These parameters are project defaults. Tune them for your deployment.
 
 ### Voice: af_jessica
 - **Voice:** `af_jessica` (single voice for rage-bait scripts)
@@ -224,7 +224,7 @@ These parameters are locked based on production learning. Do not change without 
 
 ### Video Output
 - **Format:** MP4,9:16, 1080x1920
-- **Location:** `/root/.openclaw/cli-tools/vide-gen-pipeline/out/`
+- **Location:** `./out/`
 - **Naming:** `reel-h2-v[N].mp4` (version increment per iteration)
 
 ### Tunnel for Sharing
@@ -234,12 +234,12 @@ These parameters are locked based on production learning. Do not change without 
 - **Check tunnel URL:** `curl -sI https://serveo.net` after startup
 
 ### CLI Tool Location
-- **Path:** `/root/.openclaw/cli-tools/vide-gen-pipeline`
+- **Path:** repository root
 - **Input file:** `reel-h2-input.json` (overwrite per reel)
-- **Run command:** `cd /root/.openclaw/cli-tools/vide-gen-pipeline && npm run generate -- ./reel-h2-input.json`
+- **Run command:** `npm run generate -- ./reel-h2-input.json`
 - **Output:** `./out/reel-h2-v[N].mp4`
 
 ### Performance Log
-- **Location:** `/root/.openclaw/workspace/logs/reel-performance.md`
+- **Location:** `logs/reel-performance.md`
 - **Update after every reel post**
 - **Track:** hook, script, voice params, video file, public URL, views, reach, likes, comments, shares, saves, 3s hold, result

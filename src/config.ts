@@ -285,7 +285,7 @@ Chat format (iMessage overlay):
   "video": "./assets/subway.mp4",
   "output": "./out/chat.mp4",
   "ttsSpeed": 1.0,
-  "voices": { "Peter": "clone:voices/peter.wav", "Stewie": "am_stewie" },
+  "voices": { "Peter": "clone:voices/peter.wav", "Stewie": "af_heart" },
   "chatConfig": {
     "participants": {
       "Peter": { "label": "Peter Griffin", "color": "#E5E5EA", "align": "left" },

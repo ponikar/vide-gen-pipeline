@@ -47,7 +47,7 @@ function parseArgs(): { entries: Entry[]; output: string } {
 
   if (entries.length < 2) {
     console.error("Usage: npx tsx scripts/blend-voices.ts voice1:w1 voice2:w2 ... --output <name>");
-    console.error("  or:  npx tsx scripts/blend-voices.ts --voice am_puck 0.6 --voice am_michael 0.4 --output am_peter");
+    console.error("  or:  npx tsx scripts/blend-voices.ts --voice am_puck 0.6 --voice am_michael 0.4 --output my_blended_voice");
     console.error("  or:  npx tsx scripts/blend-voices.ts --list");
     process.exit(1);
   }

@@ -75,7 +75,9 @@ export default function Home({ isSignedIn }) {
             <div className="hero-right">
               <div className="phone">
                 <div className="phone-notch"></div>
-                <video className="phone-video" src="/videos/Hero-web.mp4" autoPlay muted loop playsInline preload="metadata"></video>
+                <div className="phone-video phone-demo" aria-hidden="true">
+                  <div className="demo-caption">AI-generated reel preview</div>
+                </div>
                 <div className="phone-ui">
                   <div className="tt-rail">
                     <div className="tt-btn">
@@ -245,28 +247,28 @@ export default function Home({ isSignedIn }) {
             <p className="vg-sub reveal-up">Brainrot-style vertical videos, generated and posted automatically. This is what goes out every day.</p>
             <div className="vg-grid">
               <article className="vg-card reveal-up">
-                <video src="/videos/Hero-web.mp4" autoPlay muted loop playsInline preload="metadata"></video>
+                <div className="vg-demo" aria-hidden="true"></div>
                 <div className="vg-overlay">
                   <div className="vg-title">Hook in 3 seconds.</div>
                   <div className="vg-desc">Stops the scroll before they even think about it.</div>
                 </div>
               </article>
               <article className="vg-card reveal-up">
-                <video src="/videos/video1-web.mp4" autoPlay muted loop playsInline preload="metadata"></video>
+                <div className="vg-demo alt-a" aria-hidden="true"></div>
                 <div className="vg-overlay">
                   <div className="vg-title">TTS voiceover.</div>
                   <div className="vg-desc">Scripted, narrated, and timed automatically.</div>
                 </div>
               </article>
               <article className="vg-card reveal-up">
-                <video src="/videos/video2-web.mp4" autoPlay muted loop playsInline preload="metadata"></video>
+                <div className="vg-demo alt-b" aria-hidden="true"></div>
                 <div className="vg-overlay">
                   <div className="vg-title">Burned-in captions.</div>
                   <div className="vg-desc">Every word on screen, perfectly synced.</div>
                 </div>
               </article>
               <article className="vg-card reveal-up">
-                <video src="/videos/video3-web.mp4" autoPlay muted loop playsInline preload="metadata"></video>
+                <div className="vg-demo alt-c" aria-hidden="true"></div>
                 <div className="vg-overlay">
                   <div className="vg-title">Auto-posted.</div>
                   <div className="vg-desc">TikTok &amp; Instagram, on schedule. You approve each batch before it goes out.</div>

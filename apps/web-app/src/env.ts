@@ -16,6 +16,7 @@ export const env = createEnv({
 		TIKTOK_SANDBOX_APP_ID: z.string().optional(),
 		TIKTOK_SANDBOX_APP_SECRET: z.string().optional(),
 		TIKTOK_MODE: z.enum(["production", "sandbox"]).default("production"),
+		TIKTOK_REDIRECT_URI: z.string().url().optional(),
 		VIDEO_SERVER_URL: z.string().default("http://localhost:3001"),
 		AGENT_WORKER: z.string().min(1),
 	},
@@ -40,6 +41,7 @@ export const env = createEnv({
 		TIKTOK_SANDBOX_APP_ID: process.env.TIKTOK_SANDBOX_APP_ID,
 		TIKTOK_SANDBOX_APP_SECRET: process.env.TIKTOK_SANDBOX_APP_SECRET,
 		TIKTOK_MODE: process.env.TIKTOK_MODE,
+		TIKTOK_REDIRECT_URI: process.env.TIKTOK_REDIRECT_URI,
 		VIDEO_SERVER_URL: process.env.VIDEO_SERVER_URL,
 		NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
 			process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,

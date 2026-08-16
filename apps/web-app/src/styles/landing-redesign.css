@@ -212,6 +212,33 @@ html.intro-done .vgs-site .nav {
 }
 .vgs-site .phone-notch { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 100px; height: 26px; background: #000; border-radius: 999px; z-index: 3; }
 .vgs-site .phone-video { width: 100%; height: 100%; object-fit: cover; border-radius: 37px; display: block; background: #111; }
+.vgs-site .phone-demo {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(196,150,255,.45), transparent 28%),
+    linear-gradient(160deg, #2d3142 0%, #171717 46%, #335c67 100%);
+}
+.vgs-site .phone-demo::before {
+  content: "";
+  position: absolute;
+  inset: 18% 12% auto;
+  height: 46%;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.04));
+  border: 1px solid rgba(255,255,255,.14);
+}
+.vgs-site .demo-caption {
+  position: absolute;
+  left: 18px;
+  right: 72px;
+  bottom: 132px;
+  font-size: 24px;
+  line-height: 1.05;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0,0,0,.65);
+}
 .vgs-site .phone-ui { position: absolute; inset: 10px; border-radius: 37px; overflow: hidden; pointer-events: none; }
 .vgs-site .tt-rail { position: absolute; right: 10px; bottom: 80px; display: flex; flex-direction: column; gap: 18px; align-items: center; }
 .vgs-site .tt-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #fff; filter: drop-shadow(0 1px 4px rgba(0,0,0,.5)); }
@@ -362,7 +389,16 @@ html.intro-done .vgs-site .hero-right > *:nth-child(2) { transition-delay: .55s;
   background: #000; border: 1px solid var(--grid-line);
   box-shadow: 0 24px 60px rgba(0,0,0,.5);
 }
-.vgs-site .vg-card video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vgs-site .vg-card video,
+.vgs-site .vg-demo { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vgs-site .vg-demo {
+  background:
+    radial-gradient(circle at 50% 20%, rgba(196,150,255,.35), transparent 28%),
+    linear-gradient(160deg, #334155, #111827 54%, #0f766e);
+}
+.vgs-site .vg-demo.alt-a { background: linear-gradient(160deg, #365314, #18181b 54%, #1e3a8a); }
+.vgs-site .vg-demo.alt-b { background: linear-gradient(160deg, #4c1d95, #18181b 50%, #365314); }
+.vgs-site .vg-demo.alt-c { background: linear-gradient(160deg, #7f1d1d, #18181b 50%, #155e75); }
 .vgs-site .vg-overlay {
   position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 16px 18px;
   background: linear-gradient(to top, rgba(0,0,0,.9), rgba(0,0,0,.55) 55%, transparent);

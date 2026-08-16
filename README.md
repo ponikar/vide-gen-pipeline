@@ -22,7 +22,8 @@ INSTAGRAM_APP_SECRET=
 POSTGRES_URL=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
-VERCEL_API_URL=https://vide-gen-pipeline.vercel.app
+VERCEL_API_URL=https://your-app.example.com
+TIKTOK_REDIRECT_URI=https://your-app.example.com/api/auth/tiktok/callback
 ```
 
 ```bash
@@ -112,7 +113,7 @@ Add `"format": "chat"` to render the dialogue as iPhone Messages bubbles with vo
   },
   "voices": {
     "A": "clone:peter",
-    "B": "am_stewie"
+    "B": "af_heart"
   },
   "dialogue": [
     { "speaker": "A", "text": "What about you?" },
@@ -134,12 +135,7 @@ Add `"format": "chat"` to render the dialogue as iPhone Messages bubbles with vo
 ---
 
 **Video sources for chat format:**
-The `video` field accepts any direct MP4 URL. For brainrot-style content, use the pre-indexed clips:
-
-- Subway Surfers clips: `https://hlneqkcervrvftffotxn.supabase.co/storage/v1/object/public/videos/subway-surfers/...`
-- Minecraft Parkour clips: `https://hlneqkcervrvftffotxn.supabase.co/storage/v1/object/public/videos/subway-surfers/Minecraft_Parkour_...`
-
-See `video-urls.md` for the full list of available clips.
+The `video` field accepts any direct MP4 URL. Add your own public background clips to `video-urls.md`; the checked-in file intentionally contains placeholder URLs only.
 
 ---
 
@@ -157,7 +153,7 @@ See `video-urls.md` for the full list of available clips.
 | Built-in | Format | Example |
 |----------|--------|---------|
 | Kokoro base voices | `af_heart`, `am_adam`, `am_michael`, etc. | `"A": "af_heart"` |
-| Blended voices | `<name>` (from `voices/*.bin`) | `"A": "am_peter"` |
+| Blended voices | `<name>` (from `voices/*.bin`) | `"A": "my_blended_voice"` |
 | Cloned voices | `clone:<name>` (from `voices/<name>.wav`) | `"A": "clone:peter"` |
 
 ---
@@ -180,10 +176,10 @@ npm run voice:create -- --name peter --input ./recordings/peter.wav
 **B) Voice blending — mix existing Kokoro base voices:**
 
 ```bash
-npx tsx scripts/blend-voices.ts am_puck:0.6 am_michael:0.4 --output am_peter
+npx tsx scripts/blend-voices.ts am_puck:0.6 am_michael:0.4 --output my_blended_voice
 ```
 
-This creates `voices/am_peter.bin`. Use `am_peter` in your config.
+This creates `voices/my_blended_voice.bin`. Use `my_blended_voice` in your config. Generated voice files are ignored by Git and should not be committed.
 
 ---
 
@@ -217,7 +213,7 @@ The whole setup (venv + model downloads) happens automatically on first use — 
 curl -s -F "provider=instagram" \
   -F "caption=Your caption" \
   -F "video=@out/reel.mp4" \
-  https://vide-gen-pipeline.vercel.app/api/content/post
+  "$VERCEL_API_URL/api/content/post"
 ```
 
 Returns `{"id":"...","permalink":"https://...","containerId":"..."}` or `{"containerId":"..."}` if processing exceeds 8s (poll & publish separately).
@@ -227,12 +223,12 @@ Returns `{"id":"...","permalink":"https://...","containerId":"..."}` or `{"conta
 Step 1 — Upload locally (bypasses Vercel's 4.5MB limit):
 ```bash
 npm run upload out/reel.mp4
-# prints: https://hlneqkcervrvftffotxn.supabase.co/storage/v1/object/public/videos/...
+# prints a public storage URL from your configured Supabase project
 ```
 
 Step 2 — Post with the public URL:
 ```bash
-curl -s -X POST https://vide-gen-pipeline.vercel.app/api/content/post \
+curl -s -X POST "$VERCEL_API_URL/api/content/post" \
   -H "Content-Type: application/json" \
   -d '{"provider":"instagram","blobUrl":"<url_from_step_1>","caption":"Your caption"}'
 ```
@@ -246,12 +242,12 @@ npm run post -- instagram out/video.mp4 "Your caption"
 
 **Account-level:**
 ```bash
-curl https://vide-gen-pipeline.vercel.app/api/content/analytics?provider=instagram
+curl "$VERCEL_API_URL/api/content/analytics?provider=instagram"
 ```
 
 **Per-post** (mediaId from post response):
 ```bash
-curl "https://vide-gen-pipeline.vercel.app/api/content/analytics?provider=instagram&mediaId=18012345678901234"
+curl "$VERCEL_API_URL/api/content/analytics?provider=instagram&mediaId=18012345678901234"
 ```
 
 ---
@@ -260,16 +256,16 @@ curl "https://vide-gen-pipeline.vercel.app/api/content/analytics?provider=instag
 
 ```bash
 # Is the account connected?
-curl https://vide-gen-pipeline.vercel.app/api/auth/instagram/status
+curl "$VERCEL_API_URL/api/auth/instagram/status"
 
 # Get a fresh OAuth URL (reconnect)
-curl https://vide-gen-pipeline.vercel.app/api/auth/instagram/url
+curl "$VERCEL_API_URL/api/auth/instagram/url"
 
 # Poll container processing
-curl "https://vide-gen-pipeline.vercel.app/api/content/post/CONTAINER_ID/status?provider=instagram"
+curl "$VERCEL_API_URL/api/content/post/CONTAINER_ID/status?provider=instagram"
 
 # Publish a finished container
-curl -X POST "https://vide-gen-pipeline.vercel.app/api/content/post/CONTAINER_ID/publish?provider=instagram"
+curl -X POST "$VERCEL_API_URL/api/content/post/CONTAINER_ID/publish?provider=instagram"
 ```
 
 ## Providers
